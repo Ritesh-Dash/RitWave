@@ -32,7 +32,7 @@ android {
     ndkVersion = "27.0.12077973"
 
     defaultConfig {
-        applicationId = "com.convx.music"
+        applicationId = "com.apple.android.music"
         minSdk = 26
         targetSdk = 36
         val nightlyRunForVersion = (project.findProperty("nightlyRun") as String?)?.toIntOrNull() ?: 0
