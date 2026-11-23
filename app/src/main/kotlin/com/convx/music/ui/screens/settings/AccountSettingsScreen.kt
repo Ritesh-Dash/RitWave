@@ -49,6 +49,7 @@ import com.convx.music.constants.YtmSyncKey
 import com.convx.music.ui.component.DefaultDialog
 import com.convx.music.ui.component.IosSettingsGroup
 import com.convx.music.ui.component.IosSettingsItem
+import com.convx.music.ui.component.SettingsPage
 import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.Switch
 import com.convx.music.ui.ios.compat.Text
