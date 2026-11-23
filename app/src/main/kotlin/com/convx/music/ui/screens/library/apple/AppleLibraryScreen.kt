@@ -5,13 +5,16 @@
 
 package com.convx.music.ui.screens.library.apple
 
-import com.convx.music.ui.component.sf
 import android.content.Intent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,8 +28,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,9 +48,14 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
-import com.composables.sfsymbols.SfSymbol
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -51,33 +64,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import org.koin.androidx.compose.koinViewModel
-import org.koin.compose.koinInject
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import coil3.compose.AsyncImage
-import com.composables.sfsymbols.SfSymbols
-import com.composables.sfsymbols.monochrome.SFArrowDownCircle
-import com.composables.sfsymbols.monochrome.SFArrowDownToLine
-import com.composables.sfsymbols.monochrome.SFMusicMicrophone
-import com.composables.sfsymbols.monochrome.SFMusicNote
-import com.composables.sfsymbols.monochrome.SFIphone
-import com.composables.sfsymbols.monochrome.SFHeart
-import com.composables.sfsymbols.monochrome.SFArrowDownCircleDotted
-import com.composables.sfsymbols.monochrome.SFChartBar
-import com.composables.sfsymbols.monochrome.SFIcloudAndArrowUp
-import com.composables.sfsymbols.monochrome.SFClock
-import com.composables.sfsymbols.monochrome.SFMusicNoteList
-import com.composables.sfsymbols.monochrome.SFPin
-import com.composables.sfsymbols.monochrome.SFPlay
-import com.composables.sfsymbols.monochrome.SFShuffle
-import com.composables.sfsymbols.monochrome.SFSquareAndArrowUp
-import com.composables.sfsymbols.monochrome.SFSquareStack
-import com.composables.sfsymbols.monochrome.SFStar
-import com.composables.sfsymbols.monochrome.SFStarFill
-import com.composables.sfsymbols.monochrome.SFTextBadgePlus
-import com.composables.sfsymbols.monochrome.SFTextLineFirstAndArrowtriangleForward
-import com.composables.sfsymbols.monochrome.SFTextLineLastAndArrowtriangleForward
+import com.composables.sfsymbols.SfSymbol
 import com.convx.music.LocalDatabase
 import com.convx.music.LocalDownloadUtil
 import com.convx.music.LocalPlayerAwareWindowInsets
@@ -88,56 +78,35 @@ import com.convx.music.db.entities.LocalItem
 import com.convx.music.db.entities.Playlist
 import com.convx.music.db.entities.Song
 import com.convx.music.extensions.toMediaItem
-import com.convx.music.library.PlaylistSummary
 import com.convx.music.library.LocalPlaylistSongDataSource
+import com.convx.music.library.PlaylistSummary
 import com.convx.music.playback.DownloadTarget
 import com.convx.music.playback.downloadSongs
 import com.convx.music.playback.queues.ListQueue
+import com.convx.music.ui.component.sf
 import com.convx.music.ui.component.shapes.ContinuousRoundedRectangle
 import com.convx.music.ui.ios.compat.Text
 import com.convx.music.ui.ios.component.AppleContextMenu
-import com.convx.music.ui.ios.component.rememberAppleMenuController
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalViewConfiguration
-import sh.calvin.reorderable.ReorderableItem
-import androidx.compose.foundation.lazy.grid.items as gridItems
-import sh.calvin.reorderable.rememberReorderableLazyGridState
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.VectorConverter
-import androidx.compose.animation.core.spring
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.zIndex
-import androidx.compose.runtime.key
-import androidx.compose.runtime.LaunchedEffect
 import com.convx.music.ui.ios.component.IosGlyph
 import com.convx.music.ui.ios.component.IosMenuItem
 import com.convx.music.ui.ios.component.IosMenuSection
+import com.convx.music.ui.ios.component.rememberAppleMenuController
 import com.convx.music.ui.ios.foundation.IosMetrics
 import com.convx.music.ui.ios.foundation.IosTheme
 import com.convx.music.ui.ios.foundation.iosRowPress
 import com.convx.music.ui.menu.AddToPlaylistDialog
+import com.convx.music.ui.theme.SfProFontFamily
 import com.convx.music.ui.utils.albumRoute
 import com.convx.music.ui.utils.localPlaylistRoute
 import com.convx.music.ui.utils.sharedArtworkSource
-import com.convx.music.ui.theme.SfProFontFamily
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyGridState
 
 /**
  * Apple Music's Library destinations, plus the app's Local, Liked, Cached, Most Played,
@@ -146,7 +115,7 @@ import kotlinx.coroutines.withContext
 enum class AppleLibraryDestination { Playlists, Artists, Albums, Songs, Local, Downloaded, Liked, Podcasts, Cached, Top, Uploaded, History }
 
 /**
- * Library home with pinned items, category links, and recently added content.
+ * Library home with pinned items and category links.
  * Long-pressing a cover opens its [AppleContextMenu]. The title, menu, and avatar
  * come from the shared app bar.
  */
@@ -157,7 +126,6 @@ fun AppleLibraryScreen(
     viewModel: AppleLibraryViewModel = koinViewModel(),
 ) {
     val pinned by viewModel.pinned.collectAsStateWithLifecycle()
-    val recent by viewModel.recentlyAdded.collectAsStateWithLifecycle()
     val localOnly by viewModel.localOnly.collectAsStateWithLifecycle()
     val permission = com.convx.music.ui.component.rememberLocalAudioPermission { }
     // Online library needs no storage permission; only local-only mode is gated on it.
@@ -198,32 +166,6 @@ fun AppleLibraryScreen(
 
         if (needsAccess) {
             item(key = "library_access", contentType = "placeholder") { LocalAccessCard(permission.blocked, permission.request) }
-        } else if (recent.isNotEmpty()) {
-            item(key = "recent_title", contentType = "title") {
-                Text(
-                    text = stringResource(R.string.recently_added),
-                    style = SfStyle(22.sp, 28.sp, FontWeight.Bold, (-0.26).sp),
-                    color = colors.label,
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 10.dp),
-                )
-            }
-            items(recent.chunked(2), key = { "recent_" + it.first().id }, contentType = { "recent_row" }) { pair ->
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 18.dp),
-                ) {
-                    pair.forEach { item ->
-                        LibraryItemMenu(item, onOpen = { open(item) }, modifier = Modifier.weight(1f)) {
-                            RecentTile(item)
-                        }
-                    }
-                    if (pair.size == 1) Spacer(Modifier.weight(1f))
-                }
-            }
-        } else {
-            item(key = "library_empty", contentType = "placeholder") {
-                com.convx.music.ui.component.LocalMusicEmptyState(onScan = viewModel::scanDevice)
-            }
         }
     }
 }
@@ -231,23 +173,16 @@ fun AppleLibraryScreen(
 private class CategoryRowSpec(val destination: AppleLibraryDestination, val label: Int, val icon: SfSymbol)
 
 private val DeviceLibraryDestinations = setOf(
-    AppleLibraryDestination.Playlists, AppleLibraryDestination.Artists,
-    AppleLibraryDestination.Albums, AppleLibraryDestination.Songs, AppleLibraryDestination.Local,
+    AppleLibraryDestination.Playlists,
+    AppleLibraryDestination.Songs,
+    AppleLibraryDestination.Local,
 )
 
 private val Rows = listOf(
     CategoryRowSpec(AppleLibraryDestination.Playlists, R.string.filter_playlists, sf("SFMusicNoteList")),
-    CategoryRowSpec(AppleLibraryDestination.Artists, R.string.filter_artists, sf("microphone.dynamic.on.stand")),
-    CategoryRowSpec(AppleLibraryDestination.Albums, R.string.filter_albums, sf("SFSquareStack")),
     CategoryRowSpec(AppleLibraryDestination.Songs, R.string.filter_songs, sf("SFMusicNote")),
     CategoryRowSpec(AppleLibraryDestination.Local, R.string.filter_local, sf("SFIphone")),
-    CategoryRowSpec(AppleLibraryDestination.Downloaded, R.string.filter_downloaded, sf("SFArrowDownCircle")),
-    CategoryRowSpec(AppleLibraryDestination.Liked, R.string.filter_liked, sf("SFHeart")),
     CategoryRowSpec(AppleLibraryDestination.Podcasts, R.string.filter_podcasts, sf("microphone")),
-    CategoryRowSpec(AppleLibraryDestination.Cached, R.string.cached_playlist, sf("SFArrowDownCircleDotted")),
-    CategoryRowSpec(AppleLibraryDestination.Top, R.string.my_top, sf("SFChartBar")),
-    CategoryRowSpec(AppleLibraryDestination.Uploaded, R.string.uploaded_playlist, sf("SFIcloudAndArrowUp")),
-    CategoryRowSpec(AppleLibraryDestination.History, R.string.history, sf("SFClock")),
 )
 
 /** SF Pro at an explicit size — never the theme's font pick. */
@@ -451,52 +386,6 @@ private fun PinnedTile(item: LocalItem) {
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(top = 6.dp),
-        )
-    }
-}
-
-/** Recently added library card with artwork, title, and artist. */
-@Composable
-internal fun RecentTile(item: LocalItem) {
-    Column {
-        Cover(item.cover, 10.dp, Modifier.sharedArtworkSource(item.id, item.cover))
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = item.title,
-            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
-            color = IosTheme.colors.label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = item.subtitle(),
-            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
-            color = IosTheme.colors.secondaryLabel,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-    }
-}
-
-@Composable
-internal fun RecentTile(item: PlaylistSummary) {
-    val cover = item.artworkUrls.firstOrNull()
-    Column {
-        Cover(cover, 10.dp, Modifier.sharedArtworkSource(item.id, cover))
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = item.name,
-            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
-            color = IosTheme.colors.label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            text = pluralStringResource(R.plurals.n_song, item.songCount, item.songCount),
-            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
-            color = IosTheme.colors.secondaryLabel,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
