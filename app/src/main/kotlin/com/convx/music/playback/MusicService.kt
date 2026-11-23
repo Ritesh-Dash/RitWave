@@ -816,8 +816,8 @@ class MusicService :
     }
 
     /**
-     * Playing but silent with the system volume up means the player's own volume was left near zero
-     * (an interrupted fade, a synced host volume, a stale duck). Put it back to what the user chose.
+- Playing but silent with the system volume up means the player's own volume was left near zero
+- (an interrupted fade, a synced host volume, a stale duck). Put it back to what the user chose.
      */
     private fun startVolumeWatchdog() {
         scope.launch {
@@ -1993,9 +1993,9 @@ class MusicService :
     private val songRecoveryInFlight = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     /**
-     * Seeking re-opens the data source for every probe, and a lossless file without a seek table can
-     * mean dozens of probes. Recovering the song's metadata once per session is enough; doing it per
-     * open queued a database read and a main-thread hop for each probe.
+- Seeking re-opens the data source for every probe, and a lossless file without a seek table can
+- mean dozens of probes. Recovering the song's metadata once per session is enough; doing it per
+- open queued a database read and a main-thread hop for each probe.
      */
     private val recoveredSongIds: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
 
@@ -2148,6 +2148,26 @@ class MusicService :
         }
     }
 
+    private suspend fun resolveRadioSeedVideoId(metadata: MediaMetadata): String? {
+        val id = metadata.id
+        val isLocal = metadata.isLocalFile ||
+            id.startsWith("content://") ||
+            id.startsWith("file://") ||
+            id.startsWith("/")
+        if (!isLocal && id.isNotBlank()) return id
+
+        val query = listOfNotNull(
+            metadata.title.takeIf { it.isNotBlank() },
+            metadata.artists.firstOrNull()?.name?.takeIf { it.isNotBlank() },
+        ).joinToString(" ").trim()
+        if (query.isEmpty()) return null
+
+        val searchResult = withContext(Dispatchers.IO) {
+            YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
+        }
+        return searchResult?.songItems?.firstOrNull()?.id
+    }
+
     fun startRadioSeamlessly() {
         if (!playerInitialized.value) {
             Timber.tag(TAG).w("startRadioSeamlessly called before player initialization")
@@ -2161,7 +2181,8 @@ class MusicService :
         val requestVersion = queueRequestVersion
 
         scope.launch(SilentHandler) {
-            val radioQueue = YouTubeQueue(endpoint = WatchEndpoint(videoId = currentMediaId))
+            val seedVideoId = resolveRadioSeedVideoId(currentMediaMetadata) ?: return@launch
+            val radioQueue = YouTubeQueue(endpoint = WatchEndpoint(videoId = seedVideoId))
 
             try {
                 val initialStatus = withContext(Dispatchers.IO) {
@@ -2179,42 +2200,54 @@ class MusicService :
                     queueTitle = initialStatus.title
                 }
 
-                val radioItems = initialStatus.items.filterNot { it.mediaId == currentMediaId }
-                replaceUpcomingItems(currentIndex, radioItems)
-
-                currentQueue = radioQueue
+                val radioItems = initialStatus.items.filterNot { it.mediaId == currentMediaId || it.mediaId == seedVideoId }
+                if (radioItems.isNotEmpty()) {
+                    replaceUpcomingItems(currentIndex, radioItems)
+                    currentQueue = radioQueue
+                    if (!player.playWhenReady && castConnectionHandler?.isCasting?.value != true) {
+                        player.play()
+                    }
+                } else {
+                    loadRelatedRadio(seedVideoId, currentMediaId, currentIndex, requestVersion)
+                }
             } catch (_: Exception) {
                 if (requestVersion == queueRequestVersion) {
-                    loadRelatedRadio(currentMediaId, currentIndex, requestVersion)
+                    loadRelatedRadio(seedVideoId, currentMediaId, currentIndex, requestVersion)
                 }
             }
         }
     }
 
     private suspend fun loadRelatedRadio(
-        mediaId: String,
+        seedVideoId: String,
+        currentMediaId: String,
         currentIndex: Int,
         requestVersion: Long,
     ) {
         try {
             val relatedEndpoint = withContext(Dispatchers.IO) {
-                YouTube.next(WatchEndpoint(videoId = mediaId)).getOrNull()?.relatedEndpoint
+                YouTube.next(WatchEndpoint(videoId = seedVideoId)).getOrNull()?.relatedEndpoint
             } ?: return
             val relatedPage = withContext(Dispatchers.IO) {
                 YouTube.related(relatedEndpoint).getOrNull()
             } ?: return
             val hideVideos = dataStore.get(HideVideoSongsKey, false) || dataStore.get(DataSaverEnabledKey, false)
             val radioItems = relatedPage.songs
-                .filter { it.id != mediaId }
+                .filter { it.id != currentMediaId && it.id != seedVideoId }
                 .map { it.toMediaItem() }
                 .filterExplicit(dataStore.get(HideExplicitKey, false))
                 .filterVideoSongs(hideVideos)
             if (
                 requestVersion != queueRequestVersion ||
-                player.currentMediaItem?.mediaId != mediaId ||
+                player.currentMediaItem?.mediaId != currentMediaId ||
                 player.currentMediaItemIndex != currentIndex
             ) return
-            replaceUpcomingItems(currentIndex, radioItems)
+            if (radioItems.isNotEmpty()) {
+                replaceUpcomingItems(currentIndex, radioItems)
+                if (!player.playWhenReady && castConnectionHandler?.isCasting?.value != true) {
+                    player.play()
+                }
+            }
         } catch (_: Exception) {
             // Radio recommendations are optional; keep the current queue on failure.
         }
@@ -2228,6 +2261,9 @@ class MusicService :
             player.removeMediaItems(currentIndex + 1, queueEnd)
         }
         player.addMediaItems(currentIndex + 1, items)
+        if (player.playbackState == STATE_IDLE) {
+            player.prepare()
+        }
 
         if (player.shuffleModeEnabled) {
             val shufflePlaylistFirst = dataStore.get(ShufflePlaylistFirstKey, false)
@@ -3367,9 +3403,9 @@ class MusicService :
         }
 
         /** Lossless/Atmos stream stopped producing audio while position kept
-         *  advancing — no PlaybackException, so onPlayerError never fires for this.
-         *  Fired from the audio renderer thread; hop to [scope] (Main) before
-         *  touching the player. */
+-  advancing — no PlaybackException, so onPlayerError never fires for this.
+-  Fired from the audio renderer thread; hop to [scope] (Main) before
+-  touching the player. */
         fun handleLosslessStallDetected() {
             if (stallRecoveryJob?.isActive == true) return
             stallRecoveryJob = scope.launch {
@@ -4086,9 +4122,9 @@ class MusicService :
     }
 
     /**
-     * Repaints widget progress only while playing, with the screen on, and when a
-     * widget that displays progress is placed. Lyrics widgets keep the fast rate
-     * so their highlighted line follows playback.
+- Repaints widget progress only while playing, with the screen on, and when a
+- widget that displays progress is placed. Lyrics widgets keep the fast rate
+- so their highlighted line follows playback.
      */
     private var widgetProgressJob: Job? = null
 
@@ -4284,9 +4320,9 @@ class MusicService :
     }
 
     /**
-     * Called by [CrossfadeController] when the incoming track becomes audible.
-     * Swaps the session player, audio focus, listeners, and notification onto
-     * the incoming player and releases the old one.
+- Called by [CrossfadeController] when the incoming track becomes audible.
+- Swaps the session player, audio focus, listeners, and notification onto
+- the incoming player and releases the old one.
      */
     private fun adoptPlayer(outgoing: ExoPlayer, incoming: ExoPlayer, fadeMs: Long) {
         outgoing.removeListener(this@MusicService)
@@ -4465,7 +4501,7 @@ class MusicService :
         private const val TAG = "MusicService"
 
         /** Ceiling on how long an audio duck is allowed to hold the volume at
-         *  20% before it is force-restored (some devices never send the gain). */
+-  20% before it is force-restored (some devices never send the gain). */
         private const val DUCK_RESTORE_MS = 10_000L
 
         @Volatile
