@@ -126,7 +126,7 @@ class GitHubReleaseSource {
     }
 
     companion object {
-        private const val RELEASES_URL = "https://api.github.com/repos/cosmictaserdev-creator/Convx/releases?per_page=30"
+       private const val RELEASES_URL = "https://api.github.com/repos/Ritesh-Dash/RitWave/releases?per_page=30"
         fun isTrustedUrl(value: String): Boolean = runCatching {
             val uri = URI(value)
             uri.scheme == "https" && uri.userInfo == null && (uri.port == -1 || uri.port == 443) &&
