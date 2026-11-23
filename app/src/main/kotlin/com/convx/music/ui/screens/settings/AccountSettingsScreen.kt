@@ -21,7 +21,6 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -32,7 +31,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -44,15 +42,12 @@ import com.composables.sfsymbols.monochrome.SFArrowClockwise
 import com.composables.sfsymbols.monochrome.SFPlusCircle
 import com.composables.sfsymbols.monochrome.SFRectanglePortraitAndArrowRight
 import com.convx.music.R
-import com.convx.music.constants.DataSyncIdKey
 import com.convx.music.constants.InnerTubeCookieKey
-import com.convx.music.constants.SavedAccountsKey
 import com.convx.music.constants.UseLoginForBrowse
 import com.convx.music.constants.YtmSyncKey
 import com.convx.music.ui.component.DefaultDialog
 import com.convx.music.ui.component.IosSettingsGroup
 import com.convx.music.ui.component.IosSettingsItem
-import com.convx.music.ui.component.toSavedAccounts
 import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.Switch
 import com.convx.music.ui.ios.compat.Text
@@ -72,9 +67,6 @@ fun AccountSettingsScreen(
     val context = LocalContext.current
 
     val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
-    val (dataSyncId, _) = rememberPreference(DataSyncIdKey, "")
-    val (savedAccountsJson, _) = rememberPreference(SavedAccountsKey, "")
-    val savedAccounts = remember(savedAccountsJson) { savedAccountsJson.toSavedAccounts() }
 
     val isLoggedIn = remember(innerTubeCookie) {
         "SAPISID" in parseCookieString(innerTubeCookie)
@@ -86,10 +78,6 @@ fun AccountSettingsScreen(
     val accountSettingsViewModel: AccountSettingsViewModel = koinViewModel()
     val accountName by homeViewModel.accountName.collectAsStateWithLifecycle()
     val accountImageUrl by homeViewModel.accountImageUrl.collectAsStateWithLifecycle()
-
-    LaunchedEffect(isLoggedIn) {
-        if (isLoggedIn) accountSettingsViewModel.refreshSavedAccounts(context)
-    }
 
     var showLogoutDialog by remember { mutableStateOf(false) }
 
@@ -146,34 +134,6 @@ fun AccountSettingsScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
-
-        if (isLoggedIn && savedAccounts.size > 1) {
-            IosSettingsGroup(
-                title = stringResource(R.string.saved_accounts_title),
-                items = savedAccounts.map { account ->
-                    IosSettingsItem(
-                        leadingContent = {
-                            AsyncImage(
-                                model = account.thumbnailUrl,
-                                contentDescription = null,
-                                contentScale = ContentScale.Crop,
-                                placeholder = painterResource(R.drawable.person),
-                                error = painterResource(R.drawable.person),
-                                modifier = Modifier.size(40.dp).clip(CircleShape),
-                            )
-                        },
-                        title = { Text(account.name) },
-                        description = {
-                            Text(account.channelHandle ?: stringResource(R.string.saved_accounts_desc))
-                        },
-                        isHighlighted = account.dataSyncId == dataSyncId,
-                        onClick = { accountSettingsViewModel.switchToSavedAccount(context, account) }
-                    )
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-        }
 
         // Sync & Content Section
         if (isLoggedIn) {
