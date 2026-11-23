@@ -89,12 +89,10 @@ import org.koin.androidx.compose.koinViewModel
 /** Root rows that open a page directly rather than a category. */
 private val historyLink = SettingsLink("History", R.drawable.music_history, { systemCyan }, SettingsAction.Route("history"))
 private val statsLink = SettingsLink("Stats", R.drawable.stats, { systemYellow }, SettingsAction.Route("stats"))
-private val listenTogetherLink = SettingsLink("Listen Together", R.drawable.group, { systemCyan }, SettingsAction.Route("listen_together_from_topbar"))
 private val updateLink = SettingsLink("Software Update", R.drawable.network_update, { systemGray }, SettingsAction.Route("settings/update"))
 
 /** The root, grouped the way the categories are read: what you hear, what you see, your stuff, updates. */
 private val rootGroups = listOf(
-    listOf(listenTogetherLink),
     listOf(SettingsHubs.player.asLink(), SettingsHubs.playback.asLink(), SettingsHubs.appearance.asLink()),
     listOf(SettingsHubs.library.asLink(), SettingsHubs.accounts.asLink()),
     listOf(SettingsHubs.privacy.asLink(), historyLink, statsLink),
@@ -201,7 +199,7 @@ fun SettingsScreen(
 
 private data class SearchEntry(val link: SettingsLink, val category: String)
 
-/** Every row of every category (excluding Help & About), plus individual settings. */
+/** Every row of every category (excluding Help & About and Listen Together), plus individual settings. */
 @Composable
 private fun rememberSearchEntries(): List<SearchEntry> {
     val settings = getAllSearchableSettings()
@@ -213,7 +211,11 @@ private fun rememberSearchEntries(): List<SearchEntry> {
         }
         val treeTitles = fromTree.map { it.link.title.lowercase() }.toSet()
         fromTree + settings
-            .filter { it.title.lowercase() !in treeTitles && !it.route.contains("about", ignoreCase = true) }
+            .filter {
+                it.title.lowercase() !in treeTitles &&
+                    !it.route.contains("about", ignoreCase = true) &&
+                    !it.route.contains("listen_together", ignoreCase = true)
+            }
             .map { s ->
                 SearchEntry(
                     SettingsLink(
