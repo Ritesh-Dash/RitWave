@@ -77,6 +77,16 @@ fun OldPlayerMenu(
         TempoPitchDialog(onDismiss = { showPitchTempoDialog = false })
     }
 
+    var showAddToPlaylistDialog by rememberSaveable { mutableStateOf(false) }
+
+    if (showAddToPlaylistDialog) {
+        AddToPlaylistDialog(
+            isVisible = true,
+            onGetSong = { listOf(mediaMetadata.id) },
+            onDismiss = { showAddToPlaylistDialog = false },
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -131,21 +141,31 @@ fun OldPlayerMenu(
     ) {
         item {
             val startingRadioText = stringResource(R.string.starting_radio)
-            NewActionGrid(
-                actions = listOf(
-                    NewAction(
-                        icon = {
-                            SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
-                        },
-                        text = stringResource(R.string.start_an_radio),
-                        onClick = {
-                            Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
-                            playerConnection.startRadioSeamlessly()
-                            onDismiss()
-                        }
-                    )
+            val actions = listOf(
+                NewAction(
+                    icon = {
+                        SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
+                    },
+                    text = stringResource(R.string.start_an_radio),
+                    onClick = {
+                        Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
+                        playerConnection.startRadioSeamlessly()
+                        onDismiss()
+                    }
                 ),
-                columns = 1,
+                NewAction(
+                    icon = {
+                        SymbolIcon(symbol = sf("text.badge.plus"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
+                    },
+                    text = stringResource(R.string.add_to_playlist),
+                    onClick = {
+                        showAddToPlaylistDialog = true
+                    }
+                ),
+            )
+            NewActionGrid(
+                actions = actions,
+                columns = actions.size,
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
             )
         }
