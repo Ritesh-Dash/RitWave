@@ -20,6 +20,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -51,6 +52,7 @@ import com.convx.music.ui.component.IosSettingsItem
 import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.Switch
 import com.convx.music.ui.ios.compat.Text
+import com.convx.music.ui.ios.foundation.IosTheme
 import com.convx.music.utils.rememberPreference
 import com.convx.music.viewmodels.AccountSettingsViewModel
 import com.convx.music.viewmodels.HomeViewModel
@@ -67,10 +69,10 @@ fun AccountSettingsScreen(
     val context = LocalContext.current
 
     val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
-
     val isLoggedIn = remember(innerTubeCookie) {
         "SAPISID" in parseCookieString(innerTubeCookie)
     }
+
     val (useLoginForBrowse, onUseLoginForBrowseChange) = rememberPreference(UseLoginForBrowse, true)
     val (ytmSync, onYtmSyncChange) = rememberPreference(YtmSyncKey, true)
 
@@ -92,7 +94,11 @@ fun AccountSettingsScreen(
             title = "YouTube Music",
             items = listOf(
                 IosSettingsItem(
-                    icon = if (isLoggedIn && !accountImageUrl.isNullOrBlank()) null else rememberVectorPainter(SfSymbols.Monochrome.SFRectanglePortraitAndArrowRight),
+                    icon = if (isLoggedIn && !accountImageUrl.isNullOrBlank()) {
+                        null
+                    } else {
+                        rememberVectorPainter(SfSymbols.Monochrome.SFRectanglePortraitAndArrowRight)
+                    },
                     title = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isLoggedIn && !accountImageUrl.isNullOrBlank()) {
@@ -108,23 +114,27 @@ fun AccountSettingsScreen(
                             }
                             Text(
                                 text = if (isLoggedIn) accountName else stringResource(R.string.login),
-                                color = if (isLoggedIn) com.convx.music.ui.ios.foundation.IosTheme.colors.label else com.convx.music.ui.ios.foundation.IosTheme.tint,
-                                style = com.convx.music.ui.ios.foundation.IosTheme.typography.body.copy(fontWeight = FontWeight.SemiBold)
+                                color = if (isLoggedIn) IosTheme.colors.label else IosTheme.tint,
+                                style = IosTheme.typography.body.copy(fontWeight = FontWeight.SemiBold)
                             )
                         }
                     },
-                    trailingContent = if (isLoggedIn) ({
-                        Text(
-                            stringResource(R.string.action_logout),
-                            color = com.convx.music.ui.ios.foundation.IosTheme.colors.systemRed,
-                            style = com.convx.music.ui.ios.foundation.IosTheme.typography.subheadline.copy(fontWeight = FontWeight.SemiBold),
-                            modifier = Modifier
-                                .clip(CircleShape)
-                                .background(com.convx.music.ui.ios.foundation.IosTheme.colors.systemRed.copy(alpha = 0.14f))
-                                .clickable { showLogoutDialog = true }
-                                .padding(horizontal = 14.dp, vertical = 7.dp),
-                        )
-                    }) else null,
+                    trailingContent = if (isLoggedIn) {
+                        {
+                            Text(
+                                text = stringResource(R.string.action_logout),
+                                color = IosTheme.colors.systemRed,
+                                style = IosTheme.typography.subheadline.copy(fontWeight = FontWeight.SemiBold),
+                                modifier = Modifier
+                                    .clip(CircleShape)
+                                    .background(IosTheme.colors.systemRed.copy(alpha = 0.14f))
+                                    .clickable { showLogoutDialog = true }
+                                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                            )
+                        }
+                    } else {
+                        null
+                    },
                     onClick = {
                         if (isLoggedIn) navController.navigate("account")
                         else navController.navigate("login")
