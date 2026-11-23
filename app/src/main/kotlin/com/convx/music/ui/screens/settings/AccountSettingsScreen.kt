@@ -44,6 +44,7 @@ import com.composables.sfsymbols.monochrome.SFArrowClockwise
 import com.composables.sfsymbols.monochrome.SFPlusCircle
 import com.composables.sfsymbols.monochrome.SFRectanglePortraitAndArrowRight
 import com.convx.music.R
+import com.convx.music.constants.DataSyncIdKey
 import com.convx.music.constants.InnerTubeCookieKey
 import com.convx.music.constants.SavedAccountsKey
 import com.convx.music.constants.UseLoginForBrowse
@@ -51,7 +52,6 @@ import com.convx.music.constants.YtmSyncKey
 import com.convx.music.ui.component.DefaultDialog
 import com.convx.music.ui.component.IosSettingsGroup
 import com.convx.music.ui.component.IosSettingsItem
-import com.convx.music.ui.component.SettingsPage
 import com.convx.music.ui.component.toSavedAccounts
 import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.Switch
@@ -72,6 +72,7 @@ fun AccountSettingsScreen(
     val context = LocalContext.current
 
     val (innerTubeCookie, onInnerTubeCookieChange) = rememberPreference(InnerTubeCookieKey, "")
+    val (dataSyncId, _) = rememberPreference(DataSyncIdKey, "")
     val (savedAccountsJson, _) = rememberPreference(SavedAccountsKey, "")
     val savedAccounts = remember(savedAccountsJson) { savedAccountsJson.toSavedAccounts() }
 
@@ -165,6 +166,7 @@ fun AccountSettingsScreen(
                         description = {
                             Text(account.channelHandle ?: stringResource(R.string.saved_accounts_desc))
                         },
+                        isHighlighted = account.dataSyncId == dataSyncId,
                         onClick = { accountSettingsViewModel.switchToSavedAccount(context, account) }
                     )
                 }
