@@ -2149,23 +2149,13 @@ class MusicService :
     }
 
     private suspend fun resolveRadioSeedVideoId(metadata: MediaMetadata): String? {
-        val id = metadata.id
+        val id = metadata.id.trim()
         val isLocal = metadata.isLocalFile ||
             id.startsWith("content://") ||
             id.startsWith("file://") ||
             id.startsWith("/")
         if (!isLocal && id.isNotBlank()) return id
-
-        val query = listOfNotNull(
-            metadata.title.takeIf { it.isNotBlank() },
-            metadata.artists.firstOrNull()?.name?.takeIf { it.isNotBlank() },
-        ).joinToString(" ").trim()
-        if (query.isEmpty()) return null
-
-        val searchResult = withContext(Dispatchers.IO) {
-            YouTube.search(query, YouTube.SearchFilter.FILTER_SONG).getOrNull()
-        }
-        return searchResult?.songItems?.firstOrNull()?.id
+        return null
     }
 
     fun startRadioSeamlessly() {
