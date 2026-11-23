@@ -40,7 +40,6 @@ import androidx.navigation.NavController
 import com.composables.sfsymbols.SfSymbols
 import com.composables.sfsymbols.monochrome.SFGaugeWithNeedle
 import com.composables.sfsymbols.monochrome.SFSliderHorizontal3
-import com.convx.music.LocalListenTogetherManager
 import com.convx.music.LocalPlayerConnection
 import com.convx.music.R
 import com.convx.music.core.AudioDeviceMenu
@@ -85,10 +84,6 @@ fun PlayerMenu(
     var showAudioDevices by remember { mutableStateOf(false) }
     if (showAudioDevices) AudioDeviceMenu(onDismiss = { showAudioDevices = false })
 
-    val listenTogetherManager = LocalListenTogetherManager.current
-    val canControlTogether = listenTogetherManager?.canControl?.collectAsState(initial = true)
-    val isListenTogetherGuest = canControlTogether?.value == false
-
     var showPitchTempoDialog by rememberSaveable {
         mutableStateOf(false)
     }
@@ -116,7 +111,7 @@ fun PlayerMenu(
             bottom = 8.dp + menuBottomInset(),
         ),
     ) {
-        if (!isListenTogetherGuest && !mediaMetadata.isLocalFile) {
+        if (!mediaMetadata.isLocalFile) {
             item {
                 val startingRadioText = stringResource(R.string.starting_radio)
                 NewActionGrid(
@@ -245,8 +240,6 @@ fun TempoPitchDialog(onDismiss: () -> Unit) {
         playerConnection.player.playbackParameters =
             PlaybackParameters(tempo, 2f.pow(transposeValue.toFloat() / 12))
     }
-    val listenTogetherManager = com.convx.music.LocalListenTogetherManager.current
-    val isInRoom = listenTogetherManager?.isInRoom ?: false
 
     AlertDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -274,19 +267,17 @@ fun TempoPitchDialog(onDismiss: () -> Unit) {
         },
         text = {
             Column {
-                if (!isInRoom) {
-                    ValueAdjuster(
-                        icon = SfSymbols.Monochrome.SFGaugeWithNeedle,
-                        currentValue = tempo,
-                        values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
-                        onValueUpdate = {
-                            tempo = it
-                            updatePlaybackParameters()
-                        },
-                        valueText = { "x$it" },
-                        modifier = Modifier.padding(bottom = 12.dp),
-                    )
-                }
+                ValueAdjuster(
+                    icon = SfSymbols.Monochrome.SFGaugeWithNeedle,
+                    currentValue = tempo,
+                    values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
+                    onValueUpdate = {
+                        tempo = it
+                        updatePlaybackParameters()
+                    },
+                    valueText = { "x$it" },
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
                 ValueAdjuster(
                     icon = SfSymbols.Monochrome.SFSliderHorizontal3,
                     currentValue = transposeValue,
