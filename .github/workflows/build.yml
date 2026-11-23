@@ -61,21 +61,69 @@ jobs:
         run: |
           ./gradlew :app:assembleUniversalGmsRelease --no-configuration-cache --console=plain --warning-mode summary
 
-      - name: Package Release APK & Tag
+      - name: Package Release APK, Manifest & Tag
         id: pkg
         run: |
+          set -euo pipefail
           mkdir -p release-output
-          cp app/build/outputs/apk/universalGms/release/*.apk release-output/RitWave-universal-gms-release.apk
+          APK_SRC=$(ls app/build/outputs/apk/universalGms/release/*.apk | head -n 1)
+          APK_NAME="RitWave-universal-gms-release.apk"
+          APK_DEST="release-output/$APK_NAME"
+          cp "$APK_SRC" "$APK_DEST"
+
           TAG="v$(date +'%Y.%m.%d-%H%M')"
-          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          SHA256=$(sha256sum "$APK_DEST" | awk '{print $1}')
+          SIZE=$(stat -c%s "$APK_DEST")
+
+          AAPT2=$(find "$ANDROID_HOME/build-tools" -name aapt2 | sort -V | tail -n 1)
+          BADGING=$("$AAPT2" dump badging "$APK_DEST")
+          VERSION_CODE=$(echo "$BADGING" | sed -n "s/.*versionCode='\([0-9]*\)'.*/\1/p" | head -n 1)
+          VERSION_NAME=$(echo "$BADGING" | sed -n "s/.*versionName='\([^']*\)'.*/\1/p" | head -n 1)
+          MIN_SDK=$(echo "$BADGING" | sed -n "s/.*sdkVersion:'\([0-9]*\)'.*/\1/p" | head -n 1)
+
+          : "${VERSION_CODE:=1}"
+          : "${VERSION_NAME:=$TAG}"
+          : "${MIN_SDK:=26}"
+
+          cat <<EOF > release-output/updater.json
+          {
+            "schemaVersion": 1,
+            "packageName": "com.apple.android.music",
+            "version": "$VERSION_NAME ($TAG)",
+            "description": "Automated signed release build of RitWave ($TAG).",
+            "changelog": [
+              {
+                "title": "Latest Build",
+                "items": [
+                  "Signed release $TAG with verified SHA-256 and permanent keystore."
+                ]
+              }
+            ],
+            "assets": [
+              {
+                "name": "$APK_NAME",
+                "sha256": "$SHA256",
+                "size": $SIZE,
+                "versionCode": $VERSION_CODE,
+                "variant": "gms",
+                "abis": ["arm64-v8a", "armeabi-v7a", "x86_64", "x86"],
+                "minSdk": $MIN_SDK
+              }
+            ]
+          }
+          EOF
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.pkg.outputs.tag }}
           name: "RitWave ${{ steps.pkg.outputs.tag }}"
-          body: "Automated signed release build of RitWave for Ritesh and shared allies (Universal GMS)."
-          files: release-output/RitWave-universal-gms-release.apk
+          body: "Automated signed release build of RitWave (Universal GMS)."
+          files: |
+            release-output/RitWave-universal-gms-release.apk
+            release-output/updater.json
           make_latest: true
 
       - name: Cleanup Keystore
