@@ -74,7 +74,7 @@ jobs:
         with:
           tag_name: ${{ steps.pkg.outputs.tag }}
           name: "RitWave ${{ steps.pkg.outputs.tag }}"
-          body: "Automated signed release build of RitWave for Vivo V50 (Universal GMS)."
+          body: "Automated signed release build of RitWave for Ritesh and shared allies (Universal GMS)."
           files: release-output/RitWave-universal-gms-release.apk
           make_latest: true
 
