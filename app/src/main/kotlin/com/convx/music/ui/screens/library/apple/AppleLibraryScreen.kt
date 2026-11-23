@@ -174,15 +174,12 @@ private class CategoryRowSpec(val destination: AppleLibraryDestination, val labe
 
 private val DeviceLibraryDestinations = setOf(
     AppleLibraryDestination.Playlists,
-    AppleLibraryDestination.Songs,
     AppleLibraryDestination.Local,
 )
 
 private val Rows = listOf(
     CategoryRowSpec(AppleLibraryDestination.Playlists, R.string.filter_playlists, sf("SFMusicNoteList")),
-    CategoryRowSpec(AppleLibraryDestination.Songs, R.string.filter_songs, sf("SFMusicNote")),
     CategoryRowSpec(AppleLibraryDestination.Local, R.string.filter_local, sf("SFIphone")),
-    CategoryRowSpec(AppleLibraryDestination.Podcasts, R.string.filter_podcasts, sf("microphone")),
 )
 
 /** SF Pro at an explicit size — never the theme's font pick. */
