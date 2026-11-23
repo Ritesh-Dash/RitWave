@@ -1,7 +1,6 @@
 package com.convx.music.core.updater
 
 import android.content.Context
-import android.os.Build
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
@@ -171,10 +170,7 @@ class UpdateRepository(
         it.parentFile?.canonicalFile == File(context.noBackupFilesDir, "updates").canonicalFile && it.isFile
     }
     private fun isGitHubBuild(): Boolean {
-        if (!BuildConfig.GITHUB_UPDATER_ENABLED || BuildConfig.DEBUG) return false
-        val installedBy = if (Build.VERSION.SDK_INT >= 30) context.packageManager.getInstallSourceInfo(context.packageName).installingPackageName
-            else @Suppress("DEPRECATION") context.packageManager.getInstallerPackageName(context.packageName)
-        return installedBy !in setOf("com.android.vending", "org.fdroid.fdroid", "org.fdroid.basic")
+        return !BuildConfig.DEBUG
     }
     companion object { const val WORK_NAME = "github_update_download" }
 }
