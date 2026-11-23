@@ -94,6 +94,18 @@ fun PlayerMenu(
         )
     }
 
+    var showAddToPlaylistDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
+
+    if (showAddToPlaylistDialog) {
+        AddToPlaylistDialog(
+            isVisible = true,
+            onGetSong = { listOf(mediaMetadata.id) },
+            onDismiss = { showAddToPlaylistDialog = false },
+        )
+    }
+
     Spacer(modifier = Modifier.height(20.dp))
 
     HorizontalDivider()
@@ -111,11 +123,11 @@ fun PlayerMenu(
             bottom = 8.dp + menuBottomInset(),
         ),
     ) {
-        if (!mediaMetadata.isLocalFile) {
-            item {
-                val startingRadioText = stringResource(R.string.starting_radio)
-                NewActionGrid(
-                    actions = listOf(
+        item {
+            val startingRadioText = stringResource(R.string.starting_radio)
+            val actions = buildList {
+                if (!mediaMetadata.isLocalFile) {
+                    add(
                         NewAction(
                             icon = {
                                 SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp)
@@ -127,11 +139,25 @@ fun PlayerMenu(
                                 onDismiss()
                             }
                         )
-                    ),
-                    columns = 1,
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
+                    )
+                }
+                add(
+                    NewAction(
+                        icon = {
+                            SymbolIcon(symbol = sf("text.badge.plus"), contentDescription = null, size = 32.dp)
+                        },
+                        text = stringResource(R.string.add_to_playlist),
+                        onClick = {
+                            showAddToPlaylistDialog = true
+                        }
+                    )
                 )
             }
+            NewActionGrid(
+                actions = actions,
+                columns = actions.size.coerceAtLeast(1),
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
+            )
         }
 
         item {
