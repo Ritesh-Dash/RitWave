@@ -390,6 +390,51 @@ private fun PinnedTile(item: LocalItem) {
     }
 }
 
+@Composable
+internal fun RecentTile(item: LocalItem) {
+    Column {
+        Cover(item.cover, 10.dp, Modifier.sharedArtworkSource(item.id, item.cover))
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = item.title,
+            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
+            color = IosTheme.colors.label,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = item.subtitle(),
+            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
+            color = IosTheme.colors.secondaryLabel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+internal fun RecentTile(item: PlaylistSummary) {
+    val cover = item.artworkUrls.firstOrNull()
+    Column {
+        Cover(cover, 10.dp, Modifier.sharedArtworkSource(item.id, cover))
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = item.name,
+            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
+            color = IosTheme.colors.label,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            text = pluralStringResource(R.plurals.n_song, item.songCount, item.songCount),
+            style = SfStyle(15.sp, 20.sp, tracking = (-0.23).sp),
+            color = IosTheme.colors.secondaryLabel,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
 /** The preview card content: large cover, title, and supporting text. */
 @Composable
 private fun PreviewCard(cover: String?, title: String, subtitle: String) {
