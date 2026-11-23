@@ -59,7 +59,9 @@ jobs:
           LASTFM_API_KEY: ${{ secrets.LASTFM_API_KEY }}
           LASTFM_SECRET: ${{ secrets.LASTFM_SECRET }}
         run: |
-          ./gradlew :app:assembleUniversalGmsRelease --no-configuration-cache --console=plain --warning-mode summary
+          ./gradlew :app:assembleUniversalGmsRelease \
+            -PnightlyRun=${{ github.run_number }} \
+            --no-configuration-cache --console=plain --warning-mode summary
 
       - name: Package Release APK, Manifest & Tag
         id: pkg
