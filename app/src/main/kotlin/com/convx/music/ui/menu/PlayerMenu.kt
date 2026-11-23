@@ -318,6 +318,7 @@ fun <T> ValueAdjuster(
             onClick = {
                 onValueUpdate(values[values.indexOf(currentValue) - 1])
             },
+            onLongClick = {},
         ) {
             SymbolIcon(symbol = sf("minus"), contentDescription = null)
         }
@@ -334,6 +335,7 @@ fun <T> ValueAdjuster(
             onClick = {
                 onValueUpdate(values[values.indexOf(currentValue) + 1])
             },
+            onLongClick = {},
         ) {
             SymbolIcon(symbol = sf("plus"), contentDescription = null)
         }
