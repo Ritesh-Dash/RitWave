@@ -40,10 +40,10 @@ object UpdateNotificationHelper {
 
         // Direct download URL format from convxupdater - use the full tag (vX.X.X or bX.X.X) or nightly link
         val apkUrl = if (versionName.contains("nightly", ignoreCase = true)) {
-            "https://nightly.link/cosmictaserdev-creator/Convx/workflows/nightly.yml/main/convx-gms-nightly.zip"
-        } else {
-            "https://github.com/cosmictaserdev-creator/Convx/releases/download/$versionName/convx-$versionName.apk"
-        }
+                "https://github.com/Ritesh-Dash/RitWave/releases/latest/download/RitWave-universal-gms-release.apk"
+            } else {
+                "https://github.com/Ritesh-Dash/RitWave/releases/download/$versionName/RitWave-universal-gms-release.apk"
+            }
         val intent = Intent(Intent.ACTION_VIEW, apkUrl.toUri())
 
         val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
