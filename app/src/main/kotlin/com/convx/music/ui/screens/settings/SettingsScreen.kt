@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +31,7 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -49,22 +51,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import org.koin.androidx.compose.koinViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.convx.music.LocalPlayerAwareWindowInsets
 import com.convx.music.R
+import com.convx.music.constants.LocalOnlyModeKey
 import com.convx.music.core.updater.getAutoUpdateCheckSetting
 import com.convx.music.core.updater.getUpdateAvailableState
 import com.convx.music.ui.component.AccountAvatar
@@ -72,25 +76,15 @@ import com.convx.music.ui.component.SymbolIcon
 import com.convx.music.ui.component.sf
 import com.convx.music.ui.component.shapes.ContinuousCapsule
 import com.convx.music.ui.component.shapes.ContinuousRoundedRectangle
-import com.convx.music.ui.ios.compat.Text
-import com.convx.music.ui.ios.foundation.IosTheme
-import com.convx.music.ui.ios.foundation.iosRowPress
-import com.convx.music.ui.ios.foundation.IosMetrics
-import com.convx.music.constants.LocalOnlyModeKey
-import com.convx.music.utils.rememberPreference
 import com.convx.music.ui.ios.compat.Icon
 import com.convx.music.ui.ios.compat.Switch
-import androidx.compose.ui.graphics.Color
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.defaultMinSize
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.ui.res.painterResource
+import com.convx.music.ui.ios.compat.Text
+import com.convx.music.ui.ios.foundation.IosMetrics
+import com.convx.music.ui.ios.foundation.IosTheme
+import com.convx.music.ui.ios.foundation.iosRowPress
+import com.convx.music.utils.rememberPreference
 import com.convx.music.viewmodels.HomeViewModel
+import org.koin.androidx.compose.koinViewModel
 
 /** Root rows that open a page directly rather than a category. */
 private val historyLink = SettingsLink("History", R.drawable.music_history, { systemCyan }, SettingsAction.Route("history"))
@@ -98,13 +92,13 @@ private val statsLink = SettingsLink("Stats", R.drawable.stats, { systemYellow }
 private val listenTogetherLink = SettingsLink("Listen Together", R.drawable.group, { systemCyan }, SettingsAction.Route("listen_together_from_topbar"))
 private val updateLink = SettingsLink("Software Update", R.drawable.network_update, { systemGray }, SettingsAction.Route("settings/update"))
 
-/** The root, grouped the way the categories are read: what you hear, what you see, your stuff, help. */
+/** The root, grouped the way the categories are read: what you hear, what you see, your stuff, updates. */
 private val rootGroups = listOf(
     listOf(listenTogetherLink),
     listOf(SettingsHubs.player.asLink(), SettingsHubs.playback.asLink(), SettingsHubs.appearance.asLink()),
     listOf(SettingsHubs.library.asLink(), SettingsHubs.accounts.asLink()),
     listOf(SettingsHubs.privacy.asLink(), historyLink, statsLink),
-    listOf(updateLink, SettingsHubs.help.asLink()),
+    listOf(updateLink),
 )
 
 /** Wider than this, the root becomes a sidebar with the chosen category beside it. */
@@ -207,33 +201,36 @@ fun SettingsScreen(
 
 private data class SearchEntry(val link: SettingsLink, val category: String)
 
-/** Every row of every category, plus the individual settings, searchable by name, description and synonyms. */
+/** Every row of every category (excluding Help & About), plus individual settings. */
 @Composable
 private fun rememberSearchEntries(): List<SearchEntry> {
     val settings = getAllSearchableSettings()
     return remember(settings) {
-        val fromTree = SettingsHubs.all.flatMap { hub ->
+        val visibleHubs = SettingsHubs.all.filter { it.id != SettingsHubs.help.id }
+        val fromTree = visibleHubs.flatMap { hub ->
             listOf(SearchEntry(hub.asLink(), "Settings")) +
                 hub.groups.flatMap { g -> g.links.map { SearchEntry(it, hub.title) } }
         }
         val treeTitles = fromTree.map { it.link.title.lowercase() }.toSet()
-        fromTree + settings.filter { it.title.lowercase() !in treeTitles }.map { s ->
-            SearchEntry(
-                SettingsLink(
-                    s.title,
-                    R.drawable.search,
-                    { systemGray },
-                    when {
-                        s.opensLyricsSheet -> SettingsAction.LyricsStyle
-                        s.opensAppleMusicImport -> SettingsAction.AppleMusicImport
-                        else -> SettingsAction.Route(s.route)
-                    },
-                    s.description,
-                    s.keywords,
-                ),
-                s.category,
-            )
-        }
+        fromTree + settings
+            .filter { it.title.lowercase() !in treeTitles && !it.route.contains("about", ignoreCase = true) }
+            .map { s ->
+                SearchEntry(
+                    SettingsLink(
+                        s.title,
+                        R.drawable.search,
+                        { systemGray },
+                        when {
+                            s.opensLyricsSheet -> SettingsAction.LyricsStyle
+                            s.opensAppleMusicImport -> SettingsAction.AppleMusicImport
+                            else -> SettingsAction.Route(s.route)
+                        },
+                        s.description,
+                        s.keywords,
+                    ),
+                    s.category,
+                )
+            }
     }
 }
 
