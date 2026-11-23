@@ -10,6 +10,9 @@ on:
       - 'assets/**'
       - '.github/**/*.md'
 
+permissions:
+  contents: write
+
 jobs:
   build_release:
     name: Build Signed Universal GMS Release
@@ -58,17 +61,22 @@ jobs:
         run: |
           ./gradlew :app:assembleUniversalGmsRelease --no-configuration-cache --console=plain --warning-mode summary
 
-      - name: Rename and Package Release APK
+      - name: Package Release APK & Tag
+        id: pkg
         run: |
           mkdir -p release-output
           cp app/build/outputs/apk/universalGms/release/*.apk release-output/RitWave-universal-gms-release.apk
+          TAG="v$(date +'%Y.%m.%d-%H%M')"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
 
-      - name: Upload Signed RitWave Release APK
-        uses: actions/upload-artifact@v4
+      - name: Publish to GitHub Releases
+        uses: softprops/action-gh-release@v2
         with:
-          name: RitWave-Signed-Release
-          path: release-output/RitWave-universal-gms-release.apk
-          if-no-files-found: error
+          tag_name: ${{ steps.pkg.outputs.tag }}
+          name: "RitWave ${{ steps.pkg.outputs.tag }}"
+          body: "Automated signed release build of RitWave for Vivo V50 (Universal GMS)."
+          files: release-output/RitWave-universal-gms-release.apk
+          make_latest: true
 
       - name: Cleanup Keystore
         if: always()
