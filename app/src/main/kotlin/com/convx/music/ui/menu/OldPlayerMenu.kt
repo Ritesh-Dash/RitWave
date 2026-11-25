@@ -102,7 +102,6 @@ fun OldPlayerMenu(
     val repeatMode = playbackSnapshot.repeatMode
 
     var showChoosePlaylistDialog by rememberSaveable { mutableStateOf(false) }
-    var showPitchTempoDialog by rememberSaveable { mutableStateOf(false) }
 
     AddToPlaylistDialog(
         isVisible = showChoosePlaylistDialog,
@@ -116,10 +115,6 @@ fun OldPlayerMenu(
         },
         onDismiss = { showChoosePlaylistDialog = false }
     )
-
-    if (showPitchTempoDialog) {
-        TempoPitchDialog(onDismiss = { showPitchTempoDialog = false })
-    }
 
     Column(
         modifier = Modifier
@@ -311,9 +306,7 @@ fun OldPlayerMenu(
                                 SymbolIcon(symbol = sf("trash"), contentDescription = null, size = 24.dp)
                             },
                             onClick = {
-                                database.transaction {
-                                    currentSong?.song?.let { deleteSong(it) }
-                                }
+                                playerConnection.toggleLibrary()
                                 onDismiss()
                             }
                         )
@@ -344,17 +337,6 @@ fun OldPlayerMenu(
                                 navController.navigate("settings/equalizer")
                                 onDismiss()
                             }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.advanced)) },
-                            description = { Text(text = stringResource(R.string.advanced_desc)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("slider.horizontal.3"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = { showPitchTempoDialog = true }
                         )
                     )
 
