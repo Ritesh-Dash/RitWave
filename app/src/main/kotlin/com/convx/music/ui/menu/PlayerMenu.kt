@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -29,6 +30,7 @@ import com.convx.music.LocalDatabase
 import com.convx.music.LocalListenTogetherManager
 import com.convx.music.LocalPlayerConnection
 import com.convx.music.R
+import com.convx.music.core.AudioDeviceMenu
 import com.convx.music.models.MediaMetadata
 import com.convx.music.ui.component.BottomSheetState
 import com.convx.music.ui.component.IosMenuGroup
@@ -40,6 +42,8 @@ import com.convx.music.ui.component.menuBottomInset
 import com.convx.music.ui.component.sf
 import com.convx.music.ui.ios.compat.HorizontalDivider
 import com.convx.music.ui.ios.compat.Text
+import com.convx.music.ui.player.SleepTimerDialogHost
+import com.convx.music.ui.player.rememberSleepTimerState
 import com.music.innertube.YouTube
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -58,6 +62,10 @@ fun PlayerMenu(
     val database = LocalDatabase.current.get()
     val playerConnection = LocalPlayerConnection.current ?: return
     val coroutineScope = rememberCoroutineScope()
+
+    val sleepTimer = rememberSleepTimerState(playerConnection)
+    SleepTimerDialogHost(playerConnection, sleepTimer)
+    var showAudioDeviceBottomSheet by remember { mutableStateOf(false) }
 
     var showChoosePlaylistDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -80,6 +88,10 @@ fun PlayerMenu(
             showChoosePlaylistDialog = false
         }
     )
+
+    if (showAudioDeviceBottomSheet) {
+        AudioDeviceMenu(onDismiss = { showAudioDeviceBottomSheet = false })
+    }
 
     Spacer(modifier = Modifier.height(20.dp))
     HorizontalDivider()
@@ -132,6 +144,25 @@ fun PlayerMenu(
         item {
             IosMenuGroup(
                 items = listOf(
+                    IosMenuItemData(
+                        title = { Text(text = stringResource(R.string.sleep_timer)) },
+                        description = sleepTimer.menuLabel?.let { label -> { Text(text = label) } },
+                        icon = {
+                            SymbolIcon(symbol = sf("moon.zzz.fill"), contentDescription = null, size = 24.dp)
+                        },
+                        onClick = {
+                            sleepTimer.showDialog.value = true
+                        }
+                    ),
+                    IosMenuItemData(
+                        title = { Text(text = stringResource(R.string.audio_devices)) },
+                        icon = {
+                            SymbolIcon(symbol = sf("airplayaudio"), contentDescription = null, size = 24.dp)
+                        },
+                        onClick = {
+                            showAudioDeviceBottomSheet = true
+                        }
+                    ),
                     IosMenuItemData(
                         title = { Text(text = stringResource(R.string.details)) },
                         description = { Text(text = stringResource(R.string.details_desc)) },
