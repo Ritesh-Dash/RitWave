@@ -97,11 +97,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
-/**
- * Player design, chosen by looking: a curved row of phones each running the real player
- * for the real song, and under it the options that belong to whichever design is in use.
- * Reads and writes the player's own preferences, so it stays live wherever it is shown.
- */
 @Composable
 fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
     val (artworkStyle, setArtworkStyle) = rememberEnumPreference(PlayerArtworkStyleKey, PlayerArtworkStyle.CARD)
@@ -292,7 +287,6 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
     }
 }
 
-/** The song the previews play: what is playing now, else the last thing played. */
 @Composable
 private fun rememberPreviewTrack(): PreviewTrack? {
     val playerConnection = LocalPlayerConnection.current
