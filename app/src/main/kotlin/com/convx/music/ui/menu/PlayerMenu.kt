@@ -146,7 +146,6 @@ fun PlayerMenu(
                 items = listOf(
                     IosMenuItemData(
                         title = { Text(text = stringResource(R.string.sleep_timer)) },
-                        description = sleepTimer.menuLabel?.let { label -> { Text(text = label) } },
                         icon = {
                             SymbolIcon(symbol = sf("moon.zzz.fill"), contentDescription = null, size = 24.dp)
                         },
