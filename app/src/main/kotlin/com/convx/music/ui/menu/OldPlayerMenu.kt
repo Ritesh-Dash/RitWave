@@ -17,10 +17,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -30,6 +32,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.convx.music.LocalDatabase
+import com.convx.music.LocalListenTogetherManager
 import com.convx.music.LocalPlayerConnection
 import com.convx.music.R
 import com.convx.music.models.MediaMetadata
@@ -46,6 +50,9 @@ import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.HorizontalDivider
 import com.convx.music.ui.ios.compat.Text
 import com.convx.music.ui.theme.rememberGlobalAccentColors
+import com.music.innertube.YouTube
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 @Composable
 fun OldPlayerMenu(
@@ -57,7 +64,9 @@ fun OldPlayerMenu(
 ) {
     mediaMetadata ?: return
     val context = LocalContext.current
+    val database = LocalDatabase.current.get()
     val playerConnection = LocalPlayerConnection.current ?: return
+    val coroutineScope = rememberCoroutineScope()
     val playerVolume = playerConnection.service.playerVolume.collectAsStateWithLifecycle()
 
     val castHandler = remember(playerConnection) {
@@ -71,21 +80,24 @@ fun OldPlayerMenu(
     val castVolume by castHandler?.castVolume?.collectAsStateWithLifecycle() ?: remember { mutableFloatStateOf(1f) }
     val castDeviceName by castHandler?.castDeviceName?.collectAsStateWithLifecycle() ?: remember { mutableStateOf<String?>(null) }
 
-    var showPitchTempoDialog by rememberSaveable { mutableStateOf(false) }
+    val listenTogetherManager = LocalListenTogetherManager.current
+    val canControlTogether = listenTogetherManager?.canControl?.collectAsState(initial = true)
+    val isListenTogetherGuest = canControlTogether?.value == false
 
-    if (showPitchTempoDialog) {
-        TempoPitchDialog(onDismiss = { showPitchTempoDialog = false })
-    }
+    var showChoosePlaylistDialog by rememberSaveable { mutableStateOf(false) }
 
-    var showAddToPlaylistDialog by rememberSaveable { mutableStateOf(false) }
-
-    if (showAddToPlaylistDialog) {
-        AddToPlaylistDialog(
-            isVisible = true,
-            onGetSong = { listOf(mediaMetadata.id) },
-            onDismiss = { showAddToPlaylistDialog = false },
-        )
-    }
+    AddToPlaylistDialog(
+        isVisible = showChoosePlaylistDialog,
+        onGetSong = { playlist ->
+            database.transaction { insert(mediaMetadata) }
+            coroutineScope.launch(Dispatchers.IO) {
+                playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
+            }
+            onDismiss()
+            listOf(mediaMetadata.id)
+        },
+        onDismiss = { showChoosePlaylistDialog = false }
+    )
 
     Column(
         modifier = Modifier
@@ -126,9 +138,7 @@ fun OldPlayerMenu(
     }
 
     Spacer(modifier = Modifier.height(20.dp))
-
     HorizontalDivider()
-
     Spacer(modifier = Modifier.height(12.dp))
 
     LazyColumn(
@@ -141,31 +151,35 @@ fun OldPlayerMenu(
     ) {
         item {
             val startingRadioText = stringResource(R.string.starting_radio)
-            val actions = listOf(
-                NewAction(
-                    icon = {
-                        SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
-                    },
-                    text = stringResource(R.string.start_an_radio),
-                    onClick = {
-                        Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
-                        playerConnection.startRadioSeamlessly()
-                        onDismiss()
-                    }
-                ),
-                NewAction(
-                    icon = {
-                        SymbolIcon(symbol = sf("text.badge.plus"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
-                    },
-                    text = stringResource(R.string.add_to_playlist),
-                    onClick = {
-                        showAddToPlaylistDialog = true
-                    }
-                ),
-            )
+            val actions = buildList {
+                if (!isListenTogetherGuest) {
+                    add(
+                        NewAction(
+                            icon = {
+                                SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
+                            },
+                            text = stringResource(R.string.start_an_radio),
+                            onClick = {
+                                Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
+                                playerConnection.startRadioSeamlessly()
+                                onDismiss()
+                            }
+                        )
+                    )
+                }
+                add(
+                    NewAction(
+                        icon = {
+                            SymbolIcon(symbol = sf("text.badge.plus"), contentDescription = null, size = 32.dp, tint = AppTheme.colorScheme.onSurfaceVariant)
+                        },
+                        text = stringResource(R.string.add_to_an_playlist),
+                        onClick = { showChoosePlaylistDialog = true }
+                    )
+                )
+            }
             NewActionGrid(
                 actions = actions,
-                columns = actions.size,
+                columns = actions.size.coerceAtLeast(1),
                 modifier = Modifier.padding(horizontal = 4.dp, vertical = 8.dp)
             )
         }
@@ -198,33 +212,6 @@ fun OldPlayerMenu(
                             },
                             onClick = {
                                 navController.navigate("settings/equalizer")
-                                onDismiss()
-                            }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.advanced)) },
-                            description = { Text(text = stringResource(R.string.advanced_desc)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("slider.horizontal.3"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                showPitchTempoDialog = true
-                            }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.ambient_mode)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("arrow.up.left.and.arrow.down.right"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                navController.navigate("ambient_mode")
-                                playerBottomSheetState.collapseSoft()
                                 onDismiss()
                             }
                         )
