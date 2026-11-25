@@ -199,60 +199,48 @@ fun OldPlayerMenu(
 
         item {
             IosMenuGroup(
-                items = buildList {
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.sleep_timer)) },
-                            description = sleepTimer.menuLabel?.let { label -> { Text(text = label) } },
-                            icon = {
-                                SymbolIcon(symbol = sf("moon.zzz.fill"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                sleepTimer.showDialog.value = true
-                            }
-                        )
+                items = listOf(
+                    IosMenuItemData(
+                        title = { Text(text = stringResource(R.string.sleep_timer)) },
+                        icon = {
+                            SymbolIcon(symbol = sf("moon.zzz.fill"), contentDescription = null, size = 24.dp)
+                        },
+                        onClick = {
+                            sleepTimer.showDialog.value = true
+                        }
+                    ),
+                    IosMenuItemData(
+                        title = { Text(text = stringResource(R.string.audio_devices)) },
+                        icon = {
+                            SymbolIcon(symbol = sf("airplayaudio"), contentDescription = null, size = 24.dp)
+                        },
+                        onClick = {
+                            showAudioDeviceBottomSheet = true
+                        }
+                    ),
+                    IosMenuItemData(
+                        title = { Text(text = stringResource(R.string.details)) },
+                        description = { Text(text = stringResource(R.string.details_desc)) },
+                        icon = {
+                            SymbolIcon(symbol = sf("info.circle"), contentDescription = null, size = 24.dp)
+                        },
+                        onClick = {
+                            onShowDetailsDialog()
+                            onDismiss()
+                        }
+                    ),
+                    IosMenuItemData(
+                        title = { Text(text = stringResource(R.string.equalizer)) },
+                        description = { Text(text = stringResource(R.string.equalizer_desc)) },
+                        icon = {
+                            SymbolIcon(symbol = sf("slider.vertical.3"), contentDescription = null, size = 24.dp)
+                        },
+                        onClick = {
+                            navController.navigate("settings/equalizer")
+                            onDismiss()
+                        }
                     )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.audio_devices)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("airplayaudio"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                showAudioDeviceBottomSheet = true
-                            }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.details)) },
-                            description = { Text(text = stringResource(R.string.details_desc)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("info.circle"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                onShowDetailsDialog()
-                                onDismiss()
-                            }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.equalizer)) },
-                            description = { Text(text = stringResource(R.string.equalizer_desc)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("slider.vertical.3"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                navController.navigate("settings/equalizer")
-                                onDismiss()
-                            }
-                        )
-                    )
-                }
+                )
             )
         }
     }
