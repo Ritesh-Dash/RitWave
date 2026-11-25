@@ -554,8 +554,9 @@ fun PlayerBackdropPreview(
     modifier: Modifier = Modifier,
     heroArtwork: Boolean = true,
 ) {
+    val safeStyle = if (style == PlayerBackgroundStyle.APPLE_MUSIC) PlayerBackgroundStyle.GRADIENT else style
     Box(modifier) {
-        when (style) {
+        when (safeStyle) {
             PlayerBackgroundStyle.DEFAULT -> Box(Modifier.fillMaxSize().background(AppTheme.colorScheme.surface))
             PlayerBackgroundStyle.BLUR -> if (artworkUrl != null) {
                 BlurredBackdropImage(model = artworkUrl, screenBlurRadiusDp = 150f, modifier = Modifier.fillMaxSize())
@@ -572,9 +573,10 @@ fun PlayerBackdropPreview(
                 val colors by rememberArtworkColors(artworkUrl, glow = true)
                 GlowBackground(colors, isPlaying)
             }
-            PlayerBackgroundStyle.APPLE_MUSIC -> if (artworkUrl != null) {
-                NowPlayingBackground(artworkUrl, hero = true, modifier = Modifier.fillMaxSize())
-                if (heroArtwork) HeroArtwork(artworkUrl)
+            PlayerBackgroundStyle.APPLE_MUSIC -> {
+                val colors by rememberArtworkColors(artworkUrl, glow = false)
+                val top = colors.firstOrNull() ?: Color(0xFF2C2C2E)
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(top, Color.Black))))
             }
             PlayerBackgroundStyle.LIVE_MESH -> if (artworkUrl != null) LiveMeshBackground(artworkUrl, isPlaying)
             PlayerBackgroundStyle.FLUID_MESH -> MeshGradientBackground(
