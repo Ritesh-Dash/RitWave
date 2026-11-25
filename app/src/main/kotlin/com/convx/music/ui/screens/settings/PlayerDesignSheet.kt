@@ -36,8 +36,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -58,10 +58,10 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavController
 import com.convx.music.LocalDatabase
 import com.convx.music.LocalPlayerConnection
 import com.convx.music.R
+import com.convx.music.constants.HideVolumeBarKey
 import com.convx.music.constants.PlayerArtworkStyle
 import com.convx.music.constants.PlayerArtworkStyleKey
 import com.convx.music.constants.PlayerBackgroundStyle
@@ -73,12 +73,9 @@ import com.convx.music.constants.PlayerLookKey
 import com.convx.music.constants.PlayerStaticColorKey
 import com.convx.music.constants.ShowPlayerThumbnailShadowKey
 import com.convx.music.constants.ShowUpNextKey
-import com.convx.music.constants.HideVolumeBarKey
 import com.convx.music.constants.SliderStyle
 import com.convx.music.constants.SliderStyleKey
 import com.convx.music.constants.UseAppleMusicPlayerKey
-import com.convx.music.ui.component.LocalMenuState
-import com.convx.music.ui.component.MenuState
 import com.convx.music.ui.component.shapes.ContinuousRoundedRectangle
 import com.convx.music.ui.ios.compat.HorizontalDivider
 import com.convx.music.ui.ios.compat.Switch
@@ -99,7 +96,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
-
 
 /**
  * Player design, chosen by looking: a curved row of phones each running the real player
@@ -239,7 +235,6 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
                     }
                 }
                 val classic = shown == PlayerDesign.CARD || shown == PlayerDesign.VINYL || shown == PlayerDesign.CLOVER
-                // Classic designs and V2's square layout take a background; full bleed and Apple Music paint their own.
                 if (classic || (shown == PlayerDesign.APPLE_MUSIC_V2 && look == PlayerLook.SQUARED)) {
                     OptionSection("Background") {
                         BackgroundPicker(
@@ -258,7 +253,6 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
                         }
                     }
                 }
-                // Both Apple Music designs draw Apple's own progress bar, so the styles only apply to the classic ones.
                 if (classic) OptionSection("Seek bar") {
                     LazyRow(
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -316,10 +310,6 @@ private fun rememberPreviewTrack(): PreviewTrack? {
     }
 }
 
-/**
- * Phones along a gentle arc: the centred one full size, its neighbours smaller and lower.
- * A tap on a side phone brings it to the centre; a tap on the centre one puts it in use.
- */
 @Composable
 private fun DesignCarousel(
     selected: PlayerDesign,
@@ -340,10 +330,13 @@ private fun DesignCarousel(
             info.visibleItemsInfo.minByOrNull { abs(it.offset + it.size / 2f - mid) }?.index ?: selected.ordinal
         }
     }
-    LaunchedEffect(selected) { listState.animateScrollToItem(selected.ordinal) }
+    LaunchedEffect(selected) {
+        if (!listState.isScrollInProgress && centred != selected.ordinal) {
+            listState.scrollToItem(selected.ordinal)
+        }
+    }
 
     val phoneWidth = 176.dp
-    // Bleeds past the sheet's 16dp content inset so side phones run off the edge instead of clipping at it.
     BoxWithConstraints(
         Modifier
             .layout { measurable, constraints ->
@@ -374,13 +367,12 @@ private fun DesignCarousel(
                             val scale = 1f - (depth * 0.16f).coerceAtMost(0.3f)
                             scaleX = scale
                             scaleY = scale
-                            // Arc: neighbours sit lower and lean outwards.
                             translationY = depth * depth * 22.dp.toPx()
                             rotationZ = distance * 5f
                             alpha = 1f - (depth * 0.25f).coerceAtMost(0.5f)
                         }
                         .clickable(interactionSource = null, indication = null) {
-                            if (index == centred) onSelect(d) else scope.launch { listState.animateScrollToItem(index) }
+                            if (index == centred) onSelect(d) else scope.launch { listState.scrollToItem(index) }
                         },
                     contentAlignment = Alignment.TopCenter,
                 ) {
@@ -388,7 +380,6 @@ private fun DesignCarousel(
                         spec = specFor(d),
                         track = track,
                         positionMs = position,
-                        // Only the centred phone runs its animations; the rest hold still.
                         isPlaying = isPlaying && index == centred,
                         upNext = upNext,
                         width = phoneWidth - 12.dp,
@@ -442,7 +433,6 @@ private fun BackgroundPicker(
         items(styles) { style ->
             PickTile(label = backgroundName(style), selected = current == style, onClick = { onPick(style) }) {
                 Box(Modifier.size(width = 76.dp, height = 136.dp)) {
-                    // The real background, animating, with the cover it is built from.
                     PlayerBackdropPreview(style, artworkUrl, isPlaying = current == style, spec = spec, heroArtwork = false, modifier = Modifier.fillMaxSize())
                 }
             }
