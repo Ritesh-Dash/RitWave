@@ -5,16 +5,12 @@
 
 package com.convx.music.ui.player
 
-import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -29,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -61,8 +56,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
@@ -87,9 +82,9 @@ import com.convx.music.constants.PlayerHorizontalPadding
 import com.convx.music.constants.PlayerLook
 import com.convx.music.constants.SliderStyle
 import com.convx.music.ui.component.BlurredBackdropImage
+import com.convx.music.ui.component.PlayerSliderTrack
 import com.convx.music.ui.component.ScrollingWaveformSeekBar
 import com.convx.music.ui.component.WavySlider
-import com.convx.music.ui.component.PlayerSliderTrack
 import com.convx.music.ui.component.heroFadeOutBrush
 import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.theme.PlayerColorExtractor
@@ -101,10 +96,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-/** The five player designs a listener picks between; each maps onto existing preferences. */
 enum class PlayerDesign { CARD, VINYL, CLOVER, APPLE_MUSIC, APPLE_MUSIC_V2 }
 
-/** The track a preview shows: the real one playing, or the last one played. */
 data class PreviewTrack(
     val id: String,
     val title: String,
@@ -113,7 +106,6 @@ data class PreviewTrack(
     val durationMs: Long,
 )
 
-/** Everything that changes how the player looks, read from the same preferences the player reads. */
 data class PlayerLookSpec(
     val design: PlayerDesign,
     val background: PlayerBackgroundStyle,
@@ -127,17 +119,9 @@ data class PlayerLookSpec(
     val showVolumeBar: Boolean = true,
 )
 
-/** A phone's logical screen: the preview lays out at this size and is scaled down, so type and spacing match the device. */
 private val ScreenWidth = 390.dp
 private val ScreenHeight = 844.dp
 
-/**
- * A phone showing the player exactly as [spec] would draw it, at real size, scaled to [width].
- *
- * Built from the player's own parts — [BlurredBackdropImage], [NowPlayingBackground],
- * [MeshGradientBackground], the cover styles and the seek bars — so a background or seek
- * bar seen here is the one the player draws, not a picture of it.
- */
 @Composable
 fun PlayerPhonePreview(
     spec: PlayerLookSpec,
@@ -170,7 +154,6 @@ fun PlayerPhonePreview(
                 PlayerScreen(spec, track, positionMs, isPlaying, upNext)
             }
             if (frame) {
-                // Camera cut-out, so the device reads as a phone at a glance.
                 Box(
                     Modifier
                         .align(Alignment.TopCenter)
@@ -184,7 +167,6 @@ fun PlayerPhonePreview(
     }
 }
 
-/** Lays [content] out at a real phone size and scales the drawing down to [width]. */
 @Composable
 private fun ScaledScreen(width: Dp, content: @Composable BoxScope.() -> Unit) {
     Box(
@@ -215,8 +197,6 @@ private fun PlayerScreen(
 ) {
     val v2 = spec.design == PlayerDesign.APPLE_MUSIC_V2
     val hero = spec.design == PlayerDesign.APPLE_MUSIC || (v2 && spec.look == PlayerLook.HERO)
-    // The V2 player paints its own artwork-edge gradient for these two, exactly as Player.kt does.
-    // Full bleed ignores the background choice; the square layout takes it, except the two it paints itself.
     val v2OwnBackground = v2 && (hero || spec.background in setOf(PlayerBackgroundStyle.APPLE_MUSIC, PlayerBackgroundStyle.GRADIENT))
     val appleChrome = v2 || spec.design == PlayerDesign.APPLE_MUSIC
     val background = if (spec.design == PlayerDesign.APPLE_MUSIC) PlayerBackgroundStyle.APPLE_MUSIC else spec.background
@@ -292,7 +272,6 @@ private fun TopBar(color: Color, hero: Boolean) {
     }
 }
 
-/** The cover, in the shape and motion of the chosen style — the player's own [PlayerCoverStyle]. */
 @Composable
 private fun Artwork(spec: PlayerLookSpec, track: PreviewTrack?, isPlaying: Boolean, v2: Boolean) {
     val cover = when (spec.design) {
@@ -302,7 +281,6 @@ private fun Artwork(spec: PlayerLookSpec, track: PreviewTrack?, isPlaying: Boole
     }.coverStyle()
     val rotation by rememberCoverRotation(cover, isPlaying && !v2)
     val shape = cover.shape(if (v2) 10.dp else 16.dp)
-    // V2 squares the cover down while paused, as Apple Music does.
     val pausedScale = if (v2 && !isPlaying) 0.82f else 1f
     Box(
         Modifier
@@ -342,7 +320,6 @@ private fun ArtworkImage(url: String?, modifier: Modifier) {
     }
 }
 
-/** Full-bleed cover fading into the background at its foot — the hero layout. */
 @Composable
 private fun HeroArtwork(url: String?) {
     val fade = remember { heroFadeOutBrush() }
@@ -385,7 +362,6 @@ private fun TitleRow(track: PreviewTrack?, color: Color, v2: Boolean) {
     }
 }
 
-/** The seek bar the player would draw for [style], fed the real playhead. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SeekBar(
@@ -423,7 +399,6 @@ private fun SeekBar(
     }
 }
 
-/** Apple Music's own thin progress capsule: both Apple designs draw this, not a seek bar style. */
 @Composable
 private fun AppleSeekBar(track: PreviewTrack?, positionMs: () -> Long, color: Color) {
     val duration = (track?.durationMs ?: 0L).coerceAtLeast(1L)
@@ -440,7 +415,6 @@ private fun AppleSeekBar(track: PreviewTrack?, positionMs: () -> Long, color: Co
     }
 }
 
-/** One seek bar on its own, for picking a style: the same component the player draws. */
 @Composable
 fun PlayerSeekBarSample(style: SliderStyle, isPlaying: Boolean, modifier: Modifier = Modifier) {
     val track = remember { PreviewTrack("sample", "", "", null, 100_000L) }
@@ -537,14 +511,6 @@ private fun BottomRow(color: Color) {
     }
 }
 
-/**
- * The player's background for [style], drawn from the same parts and constants as the
- * `background` slot in Player.kt.
- *
- * ponytail: mirrors Player.kt's background `when` rather than sharing it, because that block
- * is wired to the live sheet (backdrop capture, canvas video, collapse alpha). If the two
- * drift, extract one composable from Player.kt and call it from both.
- */
 @Composable
 fun PlayerBackdropPreview(
     style: PlayerBackgroundStyle,
@@ -588,7 +554,6 @@ fun PlayerBackdropPreview(
             PlayerBackgroundStyle.CUSTOM_GRADIENT -> Box(
                 Modifier.fillMaxSize().tiltedGradient(spec?.gradientStops ?: listOf(Color(0xFF3A1C71), Color(0xFFD76D77)), spec?.gradientAngle ?: 90f),
             )
-            // Glass is the app showing through a frosted film; the frosted cover stands in for the app.
             PlayerBackgroundStyle.GLASS -> if (artworkUrl != null) {
                 BlurredBackdropImage(model = artworkUrl, screenBlurRadiusDp = 60f, modifier = Modifier.fillMaxSize())
                 Box(Modifier.fillMaxSize().background(Color.White.copy(alpha = 0.06f)))
@@ -597,7 +562,6 @@ fun PlayerBackdropPreview(
     }
 }
 
-/** The palette Player.kt extracts for GRADIENT ([glow] = false) and GLOW_ANIMATED ([glow] = true). */
 @Composable
 private fun rememberArtworkColors(url: String?, glow: Boolean): State<List<Color>> {
     val context = LocalContext.current
@@ -639,7 +603,6 @@ private fun GlowBackground(colors: List<Color>, isPlaying: Boolean) {
             }
             fun osc(min: Float, max: Float, phase: Float): Float =
                 min + (max - min) * ((kotlin.math.sin(2f * Math.PI.toFloat() * (p + phase)) + 1f) / 2f)
-            // Same six blobs, phases and strengths as the player's GLOW_ANIMATED.
             val blobs = listOf(
                 floatArrayOf(osc(0f, 1f, 0f), osc(0f, .5f, .07f), osc(.8f, 1.6f, .12f), .85f),
                 floatArrayOf(osc(1f, 0f, .2f), osc(.5f, 1f, .25f), osc(.7f, 1.5f, .18f), .8f),
@@ -685,7 +648,6 @@ private fun LiveMeshBackground(url: String, isPlaying: Boolean) {
     }
 }
 
-/** The playhead, ticking while playing so the preview's seek bar and clock move with the song. */
 @Composable
 fun rememberPreviewPosition(read: () -> Long, isPlaying: Boolean): () -> Long {
     var position by remember { mutableLongStateOf(read()) }
