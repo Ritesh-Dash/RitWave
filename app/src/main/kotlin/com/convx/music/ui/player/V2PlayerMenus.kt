@@ -23,7 +23,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.automirrored.filled.VolumeUp
 import androidx.compose.material.icons.filled.VolumeUp
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -35,14 +34,8 @@ import androidx.compose.ui.unit.dp
 import com.composables.sfsymbols.SfSymbols
 import com.composables.sfsymbols.SfSymbol
 import com.composables.sfsymbols.monochrome.SFDotRadiowavesLeftAndRight
-import com.composables.sfsymbols.monochrome.SFInfoCircle
 import com.composables.sfsymbols.monochrome.SFMusicMicrophone
-import com.composables.sfsymbols.monochrome.SFPlusCircle
-import com.composables.sfsymbols.monochrome.SFQuoteBubble
-import com.composables.sfsymbols.monochrome.SFSquareAndArrowUp
 import com.composables.sfsymbols.monochrome.SFSquareStack
-import com.composables.sfsymbols.monochrome.SFStar
-import com.composables.sfsymbols.monochrome.SFStarFill
 import com.composables.sfsymbols.monochrome.SFTextBadgePlus
 import com.convx.music.R
 import com.convx.music.ui.ios.compat.Icon
@@ -78,14 +71,8 @@ private fun glyph(vector: ImageVector): @Composable (Color) -> Unit = { tint ->
     Icon(vector, null, tint = tint, modifier = Modifier.size(17.dp))
 }
 
-private fun symbolGlyph(symbol: SfSymbol): @Composable (Color) -> Unit = { tint ->
-    com.convx.music.ui.component.SymbolIcon(symbol, null, size = 17.dp, tint = tint)
-}
-
 /**
- * The Now Playing ellipsis menu: Add / Favourite / Share quick actions,
- * then Add to a Playlist, Create Station, Go to (submenu), View Credits, Share Lyrics.
- * "More" keeps every other player action one tap away in the full sheet.
+ * The Now Playing ellipsis menu: cleaned up to keep Add to a Playlist, Create Station, and More.
  */
 @Composable
 fun V2OptionsMenu(
@@ -108,25 +95,7 @@ fun V2OptionsMenu(
 ) {
     V2MenuPopup(
         onDismiss = onDismiss,
-        quickActions = listOfNotNull(
-            IosMenuItem(
-                title = stringResource(if (isInLibrary) R.string.v2_menu_added else R.string.v2_menu_add),
-                icon = glyph(SfSymbols.Monochrome.SFPlusCircle),
-                onClick = onToggleLibrary,
-            ),
-            IosMenuItem(
-                title = stringResource(R.string.v2_menu_favourite),
-                icon = glyph(if (isLiked) SfSymbols.Monochrome.SFStarFill else SfSymbols.Monochrome.SFStar),
-                onClick = onToggleLike,
-            ),
-            onShare?.let {
-                IosMenuItem(
-                    title = stringResource(R.string.share),
-                    icon = glyph(SfSymbols.Monochrome.SFSquareAndArrowUp),
-                    onClick = it,
-                )
-            },
-        ),
+        quickActions = emptyList(),
         sections = listOf(
             IosMenuSection(listOf(
                 IosMenuItem(stringResource(R.string.v2_menu_add_to_playlist), icon = glyph(SfSymbols.Monochrome.SFTextBadgePlus), onClick = onAddToPlaylist),
@@ -135,15 +104,6 @@ fun V2OptionsMenu(
                 onCreateStation?.let {
                     IosMenuItem(stringResource(R.string.v2_menu_create_station), icon = glyph(SfSymbols.Monochrome.SFDotRadiowavesLeftAndRight), onClick = it)
                 },
-            )),
-            IosMenuSection(listOf(
-                IosMenuItem(stringResource(R.string.v2_menu_go_to), icon = glyph(SfSymbols.Monochrome.SFSquareStack), onClick = onGoTo),
-                IosMenuItem(stringResource(R.string.v2_menu_view_credits), icon = glyph(SfSymbols.Monochrome.SFInfoCircle), onClick = onViewCredits),
-                IosMenuItem(stringResource(R.string.v2_menu_share_lyrics), icon = glyph(SfSymbols.Monochrome.SFQuoteBubble), onClick = onShareLyrics),
-            )),
-            IosMenuSection(listOf(
-                IosMenuItem(stringResource(R.string.sleep_timer), description = sleepTimerLabel(), icon = symbolGlyph(com.convx.music.ui.component.sf("moon.zzz.fill")), onClick = { onDismiss(); onOpenSleepTimer() }),
-                IosMenuItem(stringResource(R.string.audio_devices), icon = symbolGlyph(com.convx.music.ui.component.sf("airplayaudio")), onClick = { onDismiss(); onOpenAudioDevices() }),
             )),
             IosMenuSection(listOf(
                 IosMenuItem(stringResource(R.string.v2_menu_more), onClick = onMore),
@@ -433,4 +393,3 @@ fun V2RoutePopover(
         }
     }
 }
-
