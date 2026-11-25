@@ -19,11 +19,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import com.convx.music.ui.ios.compat.Icon
 import com.convx.music.ui.ios.compat.IconButton
 import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.Text
-import com.composables.sfsymbols.SfSymbols
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,7 +29,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -48,10 +45,6 @@ import com.convx.music.constants.SongSortType
 import com.convx.music.extensions.toMediaItem
 import com.convx.music.playback.queues.ListQueue
 import com.convx.music.ui.component.HideOnScrollFAB
-import com.convx.music.ui.component.LargeScreenTitle
-import com.convx.music.ui.component.TopFadeBlur
-import dev.chrisbanes.haze.HazeState
-import dev.chrisbanes.haze.hazeSource
 import com.convx.music.ui.component.ListScrollRail
 import com.convx.music.ui.component.LocalMenuState
 import com.convx.music.ui.component.SongListItem
@@ -64,6 +57,8 @@ import com.convx.music.ui.utils.bounceClick
 import com.convx.music.utils.listItemShape
 import com.convx.music.utils.rememberEnumPreference
 import com.convx.music.utils.rememberPreference
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 
 /**
  * Every song on the device, in one flat list.
@@ -97,14 +92,12 @@ fun LocalSongsScreen(
     val (sortType, onSortTypeChange) = rememberEnumPreference(LocalSongSortTypeKey, SongSortType.NAME)
     val (sortDescending, onSortDescendingChange) = rememberPreference(LocalSongSortDescendingKey, false)
 
-    // The view model hands over name-ascending rows; every other order is derived here.
     val sortedSongs = remember(songs, sortType, sortDescending) {
         val ordered = when (sortType) {
-            SongSortType.NAME -> songs
+            SongSortType.NAME -> songs.sortedBy { it.title.lowercase() }
             SongSortType.ARTIST -> songs.sortedBy { song ->
                 song.artists.firstOrNull()?.name?.lowercase().orEmpty()
             }
-
             SongSortType.CREATE_DATE -> songs.sortedBy { it.song.dateModified }
             SongSortType.PLAY_TIME -> songs.sortedBy { it.song.totalPlayTime }
         }
@@ -124,7 +117,6 @@ fun LocalSongsScreen(
             SongSortType.ARTIST -> buildAlphabetSectionIndex(sortedSongs) { song ->
                 song.artists.firstOrNull()?.name.orEmpty()
             }
-
             else -> null
         }
     }
@@ -242,13 +234,16 @@ fun LocalSongsScreen(
                                 playerConnection.togglePlayPause()
                             } else {
                                 val ordered = currentSongs
-                                playerConnection.playQueue(
-                                    ListQueue(
-                                        title = context.getString(R.string.songs),
-                                        items = ordered.map { it.toMediaItem() },
-                                        startIndex = ordered.indexOfFirst { it.id == song.id }.coerceAtLeast(0),
-                                    ),
-                                )
+                                val clickedIndex = ordered.indexOfFirst { it.id == song.id }
+                                if (clickedIndex >= 0) {
+                                    playerConnection.playQueue(
+                                        ListQueue(
+                                            title = context.getString(R.string.songs),
+                                            items = ordered.map { it.toMediaItem() },
+                                            startIndex = clickedIndex,
+                                        ),
+                                    )
+                                }
                             }
                         },
                 )
