@@ -71,8 +71,12 @@ private fun glyph(vector: ImageVector): @Composable (Color) -> Unit = { tint ->
     Icon(vector, null, tint = tint, modifier = Modifier.size(17.dp))
 }
 
+private fun symbolGlyph(symbol: SfSymbol): @Composable (Color) -> Unit = { tint ->
+    com.convx.music.ui.component.SymbolIcon(symbol, null, size = 17.dp, tint = tint)
+}
+
 /**
- * The Now Playing ellipsis menu: cleaned up to keep Add to a Playlist, Create Station, and More.
+ * The Now Playing ellipsis menu with Add to a Playlist, Create Station, Sleep Timer, Audio Devices, and More.
  */
 @Composable
 fun V2OptionsMenu(
@@ -104,6 +108,10 @@ fun V2OptionsMenu(
                 onCreateStation?.let {
                     IosMenuItem(stringResource(R.string.v2_menu_create_station), icon = glyph(SfSymbols.Monochrome.SFDotRadiowavesLeftAndRight), onClick = it)
                 },
+            )),
+            IosMenuSection(listOf(
+                IosMenuItem(stringResource(R.string.sleep_timer), description = sleepTimerLabel(), icon = symbolGlyph(com.convx.music.ui.component.sf("moon.zzz.fill")), onClick = onOpenSleepTimer),
+                IosMenuItem(stringResource(R.string.audio_devices), icon = symbolGlyph(com.convx.music.ui.component.sf("airplayaudio")), onClick = onOpenAudioDevices),
             )),
             IosMenuSection(listOf(
                 IosMenuItem(stringResource(R.string.v2_menu_more), onClick = onMore),
