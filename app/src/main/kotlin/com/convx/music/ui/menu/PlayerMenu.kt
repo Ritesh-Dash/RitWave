@@ -7,65 +7,66 @@ package com.convx.music.ui.menu
 
 import android.content.res.Configuration
 import android.widget.Toast
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.core.net.toUri
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.media3.exoplayer.offline.Download
-import androidx.media3.exoplayer.offline.DownloadRequest
-import androidx.media3.exoplayer.offline.DownloadService
+import androidx.compose.ui.window.DialogProperties
+import androidx.media3.common.PlaybackParameters
 import androidx.navigation.NavController
-import com.convx.music.LocalDatabase
-import com.convx.music.LocalDownloadUtil
-import com.convx.music.LocalListenTogetherManager
+import com.composables.sfsymbols.SfSymbols
+import com.composables.sfsymbols.monochrome.SFGaugeWithNeedle
+import com.composables.sfsymbols.monochrome.SFSliderHorizontal3
 import com.convx.music.LocalPlayerConnection
 import com.convx.music.R
-import com.convx.music.constants.EnableSaavnStreamingKey
-import com.convx.music.constants.ListItemHeight
+import com.convx.music.core.AudioDeviceMenu
 import com.convx.music.models.MediaMetadata
-import com.convx.music.playback.ExoDownloadService
 import com.convx.music.ui.component.BottomSheetState
-import com.convx.music.ui.component.DownloadRingIcon
+import com.convx.music.ui.component.IconButton
 import com.convx.music.ui.component.IosMenuGroup
 import com.convx.music.ui.component.IosMenuItemData
-import com.convx.music.ui.component.ListDialog
 import com.convx.music.ui.component.NewAction
 import com.convx.music.ui.component.NewActionGrid
 import com.convx.music.ui.component.SymbolIcon
 import com.convx.music.ui.component.menuBottomInset
 import com.convx.music.ui.component.sf
+import com.convx.music.ui.ios.compat.AlertDialog
+import com.convx.music.ui.ios.compat.AppTheme
 import com.convx.music.ui.ios.compat.HorizontalDivider
+import com.convx.music.ui.ios.compat.Icon
 import com.convx.music.ui.ios.compat.Text
-import com.convx.music.utils.ShareUtils
-import com.convx.music.utils.rememberPreference
-import com.music.innertube.YouTube
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import com.convx.music.ui.ios.compat.TextButton
+import com.convx.music.ui.player.SleepTimerDialogHost
+import com.convx.music.ui.player.menuLabel
+import com.convx.music.ui.player.rememberSleepTimerState
+import kotlin.math.log2
+import kotlin.math.pow
+import kotlin.math.round
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PlayerMenu(
     mediaMetadata: MediaMetadata?,
@@ -77,75 +78,38 @@ fun PlayerMenu(
 ) {
     mediaMetadata ?: return
     val context = LocalContext.current
-    val database = LocalDatabase.current.get()
     val playerConnection = LocalPlayerConnection.current ?: return
-    val librarySong by database.song(mediaMetadata.id).collectAsState(initial = null)
-    val coroutineScope = rememberCoroutineScope()
-    val (saavnEnabled) = rememberPreference(EnableSaavnStreamingKey, defaultValue = false)
+    val sleepTimer = rememberSleepTimerState(playerConnection)
+    SleepTimerDialogHost(playerConnection, sleepTimer)
+    var showAudioDevices by remember { mutableStateOf(false) }
+    if (showAudioDevices) AudioDeviceMenu(onDismiss = { showAudioDevices = false })
 
-    val download by LocalDownloadUtil.current.get().getDownload(mediaMetadata.id)
-        .collectAsState(initial = null)
-
-    val artists = remember(mediaMetadata.artists) {
-        mediaMetadata.artists.filter { it.id != null }
+    var showPitchTempoDialog by rememberSaveable {
+        mutableStateOf(false)
     }
 
-    var showChoosePlaylistDialog by rememberSaveable { mutableStateOf(false) }
+    if (showPitchTempoDialog) {
+        TempoPitchDialog(
+            onDismiss = { showPitchTempoDialog = false },
+        )
+    }
 
-    val listenTogetherManager = LocalListenTogetherManager.current
-    val canControlTogether = listenTogetherManager?.canControl?.collectAsState(initial = true)
-    val isListenTogetherGuest = canControlTogether?.value == false
+    var showAddToPlaylistDialog by rememberSaveable {
+        mutableStateOf(false)
+    }
 
-    AddToPlaylistDialog(
-        isVisible = showChoosePlaylistDialog,
-        onGetSong = { playlist ->
-            database.transaction {
-                insert(mediaMetadata)
-            }
-            coroutineScope.launch(Dispatchers.IO) {
-                playlist.playlist.browseId?.let { YouTube.addToPlaylist(it, mediaMetadata.id) }
-            }
-            listOf(mediaMetadata.id)
-        },
-        onDismiss = {
-            showChoosePlaylistDialog = false
-        }
-    )
-
-    var showSelectArtistDialog by rememberSaveable { mutableStateOf(false) }
-
-    if (showSelectArtistDialog) {
-        ListDialog(
-            onDismiss = { showSelectArtistDialog = false },
-        ) {
-            items(artists, key = { it.id!! }) { artist ->
-                Box(
-                    contentAlignment = Alignment.CenterStart,
-                    modifier = Modifier
-                        .fillParentMaxWidth()
-                        .height(ListItemHeight)
-                        .clickable {
-                            navController.navigate("artist/${artist.id}")
-                            showSelectArtistDialog = false
-                            playerBottomSheetState.collapseSoft()
-                            onDismiss()
-                        }
-                        .padding(horizontal = 24.dp),
-                ) {
-                    Text(
-                        text = artist.name,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-        }
+    if (showAddToPlaylistDialog) {
+        AddToPlaylistDialog(
+            isVisible = true,
+            onGetSong = { listOf(mediaMetadata.id) },
+            onDismiss = { showAddToPlaylistDialog = false },
+        )
     }
 
     Spacer(modifier = Modifier.height(20.dp))
+
     HorizontalDivider()
+
     Spacer(modifier = Modifier.height(12.dp))
 
     val configuration = LocalConfiguration.current
@@ -161,50 +125,38 @@ fun PlayerMenu(
     ) {
         item {
             val startingRadioText = stringResource(R.string.starting_radio)
-            val actions = listOfNotNull(
-                if (!isListenTogetherGuest && !mediaMetadata.isLocalFile) {
+            val actions = buildList {
+                if (!mediaMetadata.isLocalFile) {
+                    add(
+                        NewAction(
+                            icon = {
+                                SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp)
+                            },
+                            text = stringResource(R.string.start_an_radio),
+                            onClick = {
+                                Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
+                                playerConnection.startRadioSeamlessly()
+                                onDismiss()
+                            }
+                        )
+                    )
+                }
+                add(
                     NewAction(
                         icon = {
-                            SymbolIcon(symbol = sf("dot.radiowaves.left.and.right"), contentDescription = null, size = 32.dp)
+                            SymbolIcon(symbol = sf("text.badge.plus"), contentDescription = null, size = 32.dp)
                         },
-                        text = stringResource(R.string.start_an_radio),
+                        text = stringResource(R.string.add_to_playlist),
                         onClick = {
-                            Toast.makeText(context, startingRadioText, Toast.LENGTH_SHORT).show()
-                            playerConnection.startRadioSeamlessly()
-                            onDismiss()
+                            showAddToPlaylistDialog = true
                         }
                     )
-                } else null,
-                NewAction(
-                    icon = {
-                        SymbolIcon(symbol = sf("text.badge.plus"), contentDescription = null, size = 32.dp)
-                    },
-                    text = stringResource(R.string.add_to_an_playlist),
-                    onClick = { showChoosePlaylistDialog = true }
-                ),
-                if (mediaMetadata.isLocalFile) null else NewAction(
-                    icon = {
-                        SymbolIcon(symbol = sf("square.and.arrow.up"), contentDescription = null, size = 32.dp)
-                    },
-                    text = stringResource(R.string.share),
-                    onClick = {
-                        val intent = android.content.Intent().apply {
-                            action = android.content.Intent.ACTION_SEND
-                            type = "text/plain"
-                            putExtra(
-                                android.content.Intent.EXTRA_TEXT,
-                                ShareUtils.songUrl(mediaMetadata.id)
-                            )
-                        }
-                        context.startActivity(android.content.Intent.createChooser(intent, null))
-                        onDismiss()
-                    }
                 )
-            )
+            }
             NewActionGrid(
                 actions = actions,
                 columns = actions.size.coerceAtLeast(1),
-                modifier = Modifier.padding(horizontal = 4.dp, vertical = if (isPortrait) 16.dp else 8.dp)
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 16.dp)
             )
         }
 
@@ -213,100 +165,23 @@ fun PlayerMenu(
                 items = buildList {
                     add(
                         IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.retry_stream)) },
-                            description = {
-                                Text(
-                                    text = if (saavnEnabled)
-                                        stringResource(R.string.retry_stream_desc_saavn)
-                                    else
-                                        stringResource(R.string.retry_stream_desc_yt)
-                                )
-                            },
-                            icon = {
-                                SymbolIcon(symbol = sf("arrow.counterclockwise"), contentDescription = null, size = 24.dp)
-                            },
+                            title = { Text(text = stringResource(R.string.sleep_timer)) },
+                            description = sleepTimer.menuLabel?.let { label -> { Text(text = label) } },
+                            icon = { SymbolIcon(symbol = sf("moon.zzz.fill"), contentDescription = null, size = 24.dp) },
                             onClick = {
-                                val player = playerConnection.player
-                                player.seekTo(0)
-                                player.prepare()
-                                player.play()
                                 onDismiss()
-                            }
+                                sleepTimer.showDialog.value = true
+                            },
                         )
                     )
-
-                    if (artists.isNotEmpty()) {
-                        add(
-                            IosMenuItemData(
-                                title = { Text(text = stringResource(R.string.view_artist)) },
-                                description = {
-                                    Text(
-                                        text = mediaMetadata.artists.joinToString { it.name },
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                },
-                                icon = {
-                                    SymbolIcon(symbol = sf("music.mic"), contentDescription = null, size = 24.dp)
-                                },
-                                onClick = {
-                                    if (mediaMetadata.artists.size == 1) {
-                                        navController.navigate("artist/${mediaMetadata.artists[0].id}")
-                                        playerBottomSheetState.collapseSoft()
-                                        onDismiss()
-                                    } else {
-                                        showSelectArtistDialog = true
-                                    }
-                                }
-                            )
-                        )
-                    }
-
-                    if (mediaMetadata.album != null) {
-                        add(
-                            IosMenuItemData(
-                                title = { Text(text = stringResource(R.string.view_album)) },
-                                description = {
-                                    Text(
-                                        text = mediaMetadata.album.title,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                },
-                                icon = {
-                                    SymbolIcon(symbol = sf("square.stack"), contentDescription = null, size = 24.dp)
-                                },
-                                onClick = {
-                                    navController.navigate("album/${mediaMetadata.album.id}")
-                                    playerBottomSheetState.collapseSoft()
-                                    onDismiss()
-                                }
-                            )
-                        )
-                    }
-
-                    val isInLibrary = librarySong?.song?.inLibrary != null
                     add(
                         IosMenuItemData(
-                            title = {
-                                Text(
-                                    text = stringResource(
-                                        if (isInLibrary) R.string.remove_from_library
-                                        else R.string.add_to_library
-                                    )
-                                )
-                            },
-                            icon = {
-                                SymbolIcon(
-                                    symbol = if (isInLibrary) sf("text.badge.checkmark") else sf("text.badge.plus"),
-                                    contentDescription = null,
-                                    size = 24.dp,
-                                )
-                            },
+                            title = { Text(text = stringResource(R.string.audio_devices)) },
+                            icon = { SymbolIcon(symbol = sf("airplayaudio"), contentDescription = null, size = 24.dp) },
                             onClick = {
-                                playerConnection.toggleLibrary()
                                 onDismiss()
-                            }
+                                showAudioDevices = true
+                            },
                         )
                     )
                 }
@@ -315,66 +190,180 @@ fun PlayerMenu(
 
         item { Spacer(modifier = Modifier.height(12.dp)) }
 
-        if (!mediaMetadata.isLocalFile) {
-            item {
-                IosMenuGroup(
-                    items = listOf(
-                        when (download?.state) {
-                            Download.STATE_COMPLETED -> {
-                                IosMenuItemData(
-                                    title = { Text(text = stringResource(R.string.remove_download)) },
-                                    icon = {
-                                        SymbolIcon(symbol = sf("arrow.down.circle"), contentDescription = null, size = 24.dp)
-                                    },
-                                    onClick = {
-                                        DownloadService.sendRemoveDownload(
-                                            context,
-                                            ExoDownloadService::class.java,
-                                            mediaMetadata.id,
-                                            false,
-                                        )
-                                        onDismiss()
-                                    }
-                                )
+        item {
+            IosMenuGroup(
+                items = buildList {
+                    add(
+                        IosMenuItemData(
+                            title = { Text(text = stringResource(R.string.details)) },
+                            description = { Text(text = stringResource(R.string.details_desc)) },
+                            icon = {
+                                SymbolIcon(symbol = sf("info.circle"), contentDescription = null, size = 24.dp)
+                            },
+                            onClick = {
+                                onShowDetailsDialog()
+                                onDismiss()
                             }
-
-                            Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {
-                                IosMenuItemData(
-                                    title = { Text(text = stringResource(R.string.downloading)) },
-                                    icon = { DownloadRingIcon(download) },
-                                    onClick = {
-                                        DownloadService.sendRemoveDownload(
-                                            context,
-                                            ExoDownloadService::class.java,
-                                            mediaMetadata.id,
-                                            false,
-                                        )
-                                        onDismiss()
-                                    }
-                                )
-                            }
-
-                            else -> {
-                                IosMenuItemData(
-                                    title = { Text(text = stringResource(R.string.action_download)) },
-                                    icon = {
-                                        SymbolIcon(symbol = sf("arrow.down.circle"), contentDescription = null, size = 24.dp)
-                                    },
-                                    onClick = {
-                                        database.transaction { insert(mediaMetadata) }
-                                        val downloadRequest = DownloadRequest.Builder(mediaMetadata.id, mediaMetadata.id.toUri())
-                                            .setCustomCacheKey(mediaMetadata.id)
-                                            .setData(mediaMetadata.title.toByteArray())
-                                            .build()
-                                        DownloadService.sendAddDownload(context, ExoDownloadService::class.java, downloadRequest, false)
-                                        onDismiss()
-                                    }
-                                )
-                            }
-                        }
+                        )
                     )
+
+                    if (isQueueTrigger != true) {
+                        add(
+                            IosMenuItemData(
+                                title = { Text(text = stringResource(R.string.equalizer)) },
+                                description = { Text(text = stringResource(R.string.equalizer_desc)) },
+                                icon = {
+                                    SymbolIcon(symbol = sf("slider.vertical.3"), contentDescription = null, size = 24.dp)
+                                },
+                                onClick = {
+                                    navController.navigate("settings/equalizer")
+                                    onDismiss()
+                                }
+                            )
+                        )
+                        add(
+                            IosMenuItemData(
+                                title = { Text(text = stringResource(R.string.advanced)) },
+                                description = { Text(text = stringResource(R.string.advanced_desc)) },
+                                icon = {
+                                    SymbolIcon(symbol = sf("slider.horizontal.3"), contentDescription = null, size = 24.dp)
+                                },
+                                onClick = {
+                                    showPitchTempoDialog = true
+                                }
+                            )
+                        )
+                    }
+                    add(
+                        IosMenuItemData(
+                            title = { Text(text = stringResource(R.string.ambient_mode)) },
+                            icon = {
+                                SymbolIcon(symbol = sf("arrow.up.left.and.arrow.down.right"), contentDescription = null, size = 24.dp)
+                            },
+                            onClick = {
+                                navController.navigate("ambient_mode")
+                                playerBottomSheetState.collapseSoft()
+                                onDismiss()
+                            }
+                        )
+                    )
+                }
+            )
+        }
+    }
+}
+
+@Composable
+fun TempoPitchDialog(onDismiss: () -> Unit) {
+    val playerConnection = LocalPlayerConnection.current ?: return
+    var tempo by remember {
+        mutableFloatStateOf(playerConnection.player.playbackParameters.speed)
+    }
+    var transposeValue by remember {
+        mutableIntStateOf(round(12 * log2(playerConnection.player.playbackParameters.pitch)).toInt())
+    }
+    val updatePlaybackParameters = {
+        playerConnection.player.playbackParameters =
+            PlaybackParameters(tempo, 2f.pow(transposeValue.toFloat() / 12))
+    }
+
+    AlertDialog(
+        properties = DialogProperties(usePlatformDefaultWidth = false),
+        onDismissRequest = onDismiss,
+        title = {
+            Text(stringResource(R.string.tempo_and_pitch))
+        },
+        dismissButton = {
+            TextButton(
+                onClick = {
+                    tempo = 1f
+                    transposeValue = 0
+                    updatePlaybackParameters()
+                },
+            ) {
+                Text(stringResource(R.string.reset))
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onDismiss,
+            ) {
+                Text(stringResource(android.R.string.ok))
+            }
+        },
+        text = {
+            Column {
+                ValueAdjuster(
+                    icon = SfSymbols.Monochrome.SFGaugeWithNeedle,
+                    currentValue = tempo,
+                    values = (0..35).map { round((0.25f + it * 0.05f) * 100) / 100 },
+                    onValueUpdate = {
+                        tempo = it
+                        updatePlaybackParameters()
+                    },
+                    valueText = { "x$it" },
+                    modifier = Modifier.padding(bottom = 12.dp),
+                )
+                ValueAdjuster(
+                    icon = SfSymbols.Monochrome.SFSliderHorizontal3,
+                    currentValue = transposeValue,
+                    values = (-12..12).toList(),
+                    onValueUpdate = {
+                        transposeValue = it
+                        updatePlaybackParameters()
+                    },
+                    valueText = { "${if (it > 0) "+" else ""}$it" },
                 )
             }
+        },
+    )
+}
+
+@Composable
+fun <T> ValueAdjuster(
+    icon: ImageVector,
+    currentValue: T,
+    values: List<T>,
+    onValueUpdate: (T) -> Unit,
+    valueText: (T) -> String,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = modifier,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier.size(28.dp),
+        )
+
+        IconButton(
+            enabled = currentValue != values.first(),
+            onClick = {
+                onValueUpdate(values[values.indexOf(currentValue) - 1])
+            },
+            onLongClick = {},
+        ) {
+            SymbolIcon(symbol = sf("minus"), contentDescription = null)
+        }
+
+        Text(
+            text = valueText(currentValue),
+            style = AppTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(80.dp),
+        )
+
+        IconButton(
+            enabled = currentValue != values.last(),
+            onClick = {
+                onValueUpdate(values[values.indexOf(currentValue) + 1])
+            },
+            onLongClick = {},
+        ) {
+            SymbolIcon(symbol = sf("plus"), contentDescription = null)
         }
     }
 }
