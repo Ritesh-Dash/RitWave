@@ -85,7 +85,6 @@ fun OldPlayerMenu(
     val isListenTogetherGuest = canControlTogether?.value == false
 
     var showChoosePlaylistDialog by rememberSaveable { mutableStateOf(false) }
-    var showPitchTempoDialog by rememberSaveable { mutableStateOf(false) }
 
     AddToPlaylistDialog(
         isVisible = showChoosePlaylistDialog,
@@ -99,10 +98,6 @@ fun OldPlayerMenu(
         },
         onDismiss = { showChoosePlaylistDialog = false }
     )
-
-    if (showPitchTempoDialog) {
-        TempoPitchDialog(onDismiss = { showPitchTempoDialog = false })
-    }
 
     Column(
         modifier = Modifier
@@ -217,31 +212,6 @@ fun OldPlayerMenu(
                             },
                             onClick = {
                                 navController.navigate("settings/equalizer")
-                                onDismiss()
-                            }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.advanced)) },
-                            description = { Text(text = stringResource(R.string.advanced_desc)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("slider.horizontal.3"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = { showPitchTempoDialog = true }
-                        )
-                    )
-
-                    add(
-                        IosMenuItemData(
-                            title = { Text(text = stringResource(R.string.ambient_mode)) },
-                            icon = {
-                                SymbolIcon(symbol = sf("arrow.up.left.and.arrow.down.right"), contentDescription = null, size = 24.dp)
-                            },
-                            onClick = {
-                                navController.navigate("ambient_mode")
-                                playerBottomSheetState.collapseSoft()
                                 onDismiss()
                             }
                         )
