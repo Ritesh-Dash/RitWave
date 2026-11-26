@@ -119,9 +119,17 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
         else -> PlayerDesign.CARD
     }
     val gradientStops = remember(gradientRaw) { decodeGradientStops(gradientRaw) }
-    fun specFor(d: PlayerDesign, lookOverride: PlayerLook = look, backgroundOverride: PlayerBackgroundStyle = background) = PlayerLookSpec(
+    fun specFor(
+        d: PlayerDesign,
+        lookOverride: PlayerLook = look,
+        backgroundOverride: PlayerBackgroundStyle = background,
+    ) = PlayerLookSpec(
         design = d,
-        background = if (d != PlayerDesign.APPLE_MUSIC && backgroundOverride == PlayerBackgroundStyle.APPLE_MUSIC && d != PlayerDesign.APPLE_MUSIC_V2) {
+        background = if (
+            d != PlayerDesign.APPLE_MUSIC &&
+            backgroundOverride == PlayerBackgroundStyle.APPLE_MUSIC &&
+            d != PlayerDesign.APPLE_MUSIC_V2
+        ) {
             PlayerBackgroundStyle.GRADIENT
         } else backgroundOverride,
         sliderStyle = sliderStyle,
@@ -135,26 +143,26 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
     )
 
     fun apply(d: PlayerDesign) {
+        if (d == design) return
         val leaveAppleBackground = background == PlayerBackgroundStyle.APPLE_MUSIC
         when (d) {
             PlayerDesign.CARD, PlayerDesign.VINYL, PlayerDesign.CLOVER -> {
-                setUseV2(false)
-                setArtworkStyle(
-                    when (d) {
-                        PlayerDesign.VINYL -> PlayerArtworkStyle.VINYL
-                        PlayerDesign.CLOVER -> PlayerArtworkStyle.CLOVER
-                        else -> PlayerArtworkStyle.CARD
-                    },
-                )
+                val targetArtwork = when (d) {
+                    PlayerDesign.VINYL -> PlayerArtworkStyle.VINYL
+                    PlayerDesign.CLOVER -> PlayerArtworkStyle.CLOVER
+                    else -> PlayerArtworkStyle.CARD
+                }
+                if (artworkStyle != targetArtwork) setArtworkStyle(targetArtwork)
                 if (leaveAppleBackground) setBackground(PlayerBackgroundStyle.GRADIENT)
+                if (useV2) setUseV2(false)
             }
             PlayerDesign.APPLE_MUSIC -> {
-                setUseV2(false)
-                setBackground(PlayerBackgroundStyle.APPLE_MUSIC)
+                if (background != PlayerBackgroundStyle.APPLE_MUSIC) setBackground(PlayerBackgroundStyle.APPLE_MUSIC)
+                if (useV2) setUseV2(false)
             }
             PlayerDesign.APPLE_MUSIC_V2 -> {
-                setUseV2(true)
                 if (leaveAppleBackground) setBackground(PlayerBackgroundStyle.LIVE_MESH)
+                if (!useV2) setUseV2(true)
             }
         }
     }
@@ -199,8 +207,8 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
         AnimatedContent(
             targetState = design,
             transitionSpec = {
-                (fadeIn(tween(220, delayMillis = 60)) + expandVertically(tween(260))) togetherWith
-                    (fadeOut(tween(120)) + shrinkVertically(tween(200)))
+                (fadeIn(tween(200, delayMillis = 40)) + expandVertically(tween(220))) togetherWith
+                    (fadeOut(tween(110)) + shrinkVertically(tween(170)))
             },
             label = "designOptions",
         ) { shown ->
@@ -215,7 +223,7 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
                                 LayoutChoice(
                                     label = if (option == PlayerLook.HERO) "Full bleed" else "Square artwork",
                                     selected = look == option,
-                                    onClick = { setLook(option) },
+                                    onClick = { if (look != option) setLook(option) },
                                 ) {
                                     PlayerPhonePreview(
                                         spec = specFor(shown, lookOverride = option),
@@ -261,7 +269,7 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
                             ) {
                                 PlayerSeekBarSample(
                                     style = style,
-                                    isPlaying = isPlaying,
+                                    isPlaying = false,
                                     modifier = Modifier
                                         .size(width = 132.dp, height = 64.dp)
                                         .background(Color(0xFF1C1C1E)),
@@ -326,7 +334,7 @@ private fun DesignCarousel(
     }
     LaunchedEffect(selected) {
         if (!listState.isScrollInProgress && centred != selected.ordinal) {
-            listState.scrollToItem(selected.ordinal)
+            listState.animateScrollToItem(selected.ordinal)
         }
     }
 
@@ -366,7 +374,7 @@ private fun DesignCarousel(
                             alpha = 1f - (depth * 0.25f).coerceAtMost(0.5f)
                         }
                         .clickable(interactionSource = null, indication = null) {
-                            if (index == centred) onSelect(d) else scope.launch { listState.scrollToItem(index) }
+                            if (index == centred) onSelect(d) else scope.launch { listState.animateScrollToItem(index) }
                         },
                     contentAlignment = Alignment.TopCenter,
                 ) {
@@ -374,7 +382,7 @@ private fun DesignCarousel(
                         spec = specFor(d),
                         track = track,
                         positionMs = position,
-                        isPlaying = isPlaying && index == centred,
+                        isPlaying = false,
                         upNext = upNext,
                         width = phoneWidth - 12.dp,
                     )
@@ -427,7 +435,7 @@ private fun BackgroundPicker(
         items(styles) { style ->
             PickTile(label = backgroundName(style), selected = current == style, onClick = { onPick(style) }) {
                 Box(Modifier.size(width = 76.dp, height = 136.dp)) {
-                    PlayerBackdropPreview(style, artworkUrl, isPlaying = current == style, spec = spec, heroArtwork = false, modifier = Modifier.fillMaxSize())
+                    PlayerBackdropPreview(style, artworkUrl, isPlaying = false, spec = spec, heroArtwork = false, modifier = Modifier.fillMaxSize())
                 }
             }
         }
