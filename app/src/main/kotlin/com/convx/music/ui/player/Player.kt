@@ -217,7 +217,6 @@ import com.convx.music.constants.SliderStyleKey
 import com.convx.music.constants.SwipeLyricsKey
 import com.convx.music.constants.ThumbnailCornerRadius
 import com.convx.music.constants.ThumbnailRoundedShape
-import com.convx.music.constants.UseAppleMusicPlayerKey
 import com.convx.music.constants.UseNewPlayerDesignKey
 import com.convx.music.constants.ShowAudioQualityBadgeKey
 import com.convx.music.db.entities.LyricsEntity
@@ -345,7 +344,8 @@ fun BottomSheetPlayer(
     val bottomSheetPageState = LocalBottomSheetPageState.current
     val playerConnection = LocalPlayerConnection.current ?: return
 
-    val (useAppleMusicPlayer) = rememberPreference(UseAppleMusicPlayerKey, defaultValue = true)
+    // Apple Music v2 is disabled; always run the classic player designs (Card, Vinyl, Apple Music).
+    val useAppleMusicPlayer = false
     val v2Look by rememberEnumPreference(com.convx.music.constants.PlayerLookKey, com.convx.music.constants.PlayerLook.SQUARED)
 
     val videoLoopClock = rememberVideoLoopClock()
@@ -1568,23 +1568,13 @@ fun BottomSheetPlayer(
                                             }
                                             Unit
                                         }
-                                        if (useNewPlayerDesign) {
-                                            PlayerMenu(
-                                                mediaMetadata = mediaMetadata,
-                                                navController = navController,
-                                                playerBottomSheetState = state,
-                                                onShowDetailsDialog = onShowDetails,
-                                                onDismiss = menuState::dismiss,
-                                            )
-                                        } else {
-                                            OldPlayerMenu(
-                                                mediaMetadata = mediaMetadata,
-                                                navController = navController,
-                                                playerBottomSheetState = state,
-                                                onShowDetailsDialog = onShowDetails,
-                                                onDismiss = menuState::dismiss,
-                                            )
-                                        }
+                                        OldPlayerMenu(
+                                            mediaMetadata = mediaMetadata,
+                                            navController = navController,
+                                            playerBottomSheetState = state,
+                                            onShowDetailsDialog = onShowDetails,
+                                            onDismiss = menuState::dismiss,
+                                        )
                                     }
                                 },
                                 modifier = Modifier.size(40.dp),
@@ -1898,92 +1888,59 @@ fun BottomSheetPlayer(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    if (useNewPlayerDesign) {
-                        val shareShape = RoundedCornerShape(
-                            topStart = 50.dp, bottomStart = 50.dp,
-                            topEnd = 3.dp, bottomEnd = 3.dp
-                        )
-
-                        val favShape = RoundedCornerShape(
-                            topStart = 3.dp, bottomStart = 3.dp,
-                            topEnd = 50.dp, bottomEnd = 50.dp
-                        )
-
-                        Row(
-                            modifier = Modifier.auxiliaryBoundsMorph("actionButtons"),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    val loopBucketProvider = remember(videoLoopClock) {
+                        { videoLoopClock.bucket(VideoLoopBucketMs) }
+                    }
+                    val videoCanvasActive = enableCanvas && canvasArtwork != null && backgroundVisible
+                    Row(
+                        modifier = Modifier.auxiliaryBoundsMorph("actionButtons"),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CompositionLocalProvider(
+                            LocalAppBackdrop provides playerBackdrop,
+                            LocalBackdropLoopBucket provides if (videoCanvasActive) loopBucketProvider else null,
                         ) {
                             AnimatedContent(targetState = showInlineLyrics, label = "DownloadButton") { showLyrics ->
                                 if (showLyrics) {
-                                    FilledIconButton(
+                                    GlassCircleButton(
                                         onClick = {
                                             isFullScreen = !isFullScreen
                                             if (oneTapFullscreenLyrics && !isFullScreen) showInlineLyrics = false
                                         },
-                                        shape = shareShape,
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = textButtonColor,
-                                            contentColor = iconButtonColor,
-                                        ),
-                                        modifier = Modifier.size(42.dp)
-                                            .flamingoChrome(additiveChrome)
-                                            .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha },
                                     ) {
                                         SymbolIcon(symbol = sf("arrow.up.left.and.arrow.down.right"), contentDescription = null, size = 24.dp)
                                     }
                                 } else {
-                                    FilledIconButton(
-                                        onClick = {
-                                            when (download?.state) {
-                                                Download.STATE_COMPLETED, Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {
-                                                    DownloadService.sendRemoveDownload(
-                                                        context,
-                                                        ExoDownloadService::class.java,
-                                                        mediaMetadata.id,
-                                                        false,
+                                    ForcedDarkScope {
+                                        GlassCircleButton(
+                                            onClick = {
+                                                menuState.show {
+                                                    OldPlayerMenu(
+                                                        mediaMetadata = mediaMetadata,
+                                                        navController = navController,
+                                                        playerBottomSheetState = state,
+                                                        onShowDetailsDialog = {
+                                                            mediaMetadata.id.let {
+                                                                bottomSheetPageState.showFloating {
+                                                                    ShowMediaInfo(it)
+                                                                }
+                                                            }
+                                                        },
+                                                        onDismiss = menuState::dismiss
                                                     )
                                                 }
-                                                else -> {
-                                                    database.transaction {
-                                                        insert(mediaMetadata)
-                                                    }
-                                                    val downloadRequest =
-                                                        DownloadRequest
-                                                            .Builder(mediaMetadata.id, mediaMetadata.id.toUri())
-                                                            .setCustomCacheKey(mediaMetadata.id)
-                                                            .setData(mediaMetadata.title.toByteArray())
-                                                            .build()
-                                                    DownloadService.sendAddDownload(
-                                                        context,
-                                                        ExoDownloadService::class.java,
-                                                        downloadRequest,
-                                                        false,
-                                                    )
-                                                }
-                                            }
-                                        },
-                                        shape = shareShape,
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = textButtonColor,
-                                            contentColor = iconButtonColor,
-                                        ),
-                                        modifier = Modifier.size(42.dp)
-                                            .flamingoChrome(additiveChrome)
-                                            .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha },
-                                    ) {
-                                        when (download?.state) {
-                                            Download.STATE_COMPLETED -> {
-                                                SymbolIcon(symbol = sf("arrow.down.circle"), contentDescription = null, size = 24.dp)
-                                            }
-                                            Download.STATE_QUEUED, Download.STATE_DOWNLOADING -> {
-                                                CircularWavyProgressIndicator(
-                                                    modifier = Modifier.size(24.dp),
-                                                )
-                                            }
-                                            else -> {
-                                                SymbolIcon(symbol = sf("arrow.down.circle"), contentDescription = null, size = 24.dp)
-                                            }
+                                            },
+                                            forceFlat = auxiliaryArtworkTransitionRunning(),
+                                        ) {
+                                            PlayerGlyph(
+                                                slot = PlayerIconSlot.MORE,
+                                                fallback = R.drawable.more_horiz,
+                                                tint = LocalContentColor.current,
+                                                modifier = Modifier.size(24.dp)
+                                                    .flamingoChrome(additiveChrome)
+                                                    .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha }
+                                            )
                                         }
                                     }
                                 }
@@ -1992,46 +1949,40 @@ fun BottomSheetPlayer(
                             AnimatedContent(targetState = showInlineLyrics, label = "LikeButton") { showLyrics ->
                                 if (showLyrics) {
                                     val currentLyrics by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
-                                    FilledIconButton(
-                                        onClick = {
-                                            menuState.show {
-                                                com.convx.music.ui.menu.LyricsMenu(
-                                                    lyricsProvider = { currentLyrics },
-                                                    songProvider = { currentSong?.song },
-                                                    mediaMetadataProvider = { mediaMetadata },
-                                                    onDismiss = menuState::dismiss,
-                                                    onShowOffsetDialog = {
-                                                        bottomSheetPageState.show {
-                                                            ShowOffsetDialog(
-                                                                songProvider = { currentSong?.song }
-                                                            )
+                                    ForcedDarkScope {
+                                        GlassCircleButton(
+                                            onClick = {
+                                                menuState.show {
+                                                    com.convx.music.ui.menu.LyricsMenu(
+                                                        lyricsProvider = { currentLyrics },
+                                                        songProvider = { currentSong?.song },
+                                                        mediaMetadataProvider = { mediaMetadata },
+                                                        onDismiss = menuState::dismiss,
+                                                        onShowOffsetDialog = {
+                                                            bottomSheetPageState.show {
+                                                                ShowOffsetDialog(
+                                                                    songProvider = { currentSong?.song }
+                                                                )
+                                                            }
                                                         }
-                                                    }
-                                                )
-                                            }
-                                        },
-                                        shape = favShape,
-                                        colors = IconButtonDefaults.filledIconButtonColors(
-                                            containerColor = textButtonColor,
-                                            contentColor = iconButtonColor,
-                                        ),
-                                        modifier = Modifier.size(42.dp)
-                                            .flamingoChrome(additiveChrome)
-                                            .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha },
-                                    ) {
-                                        PlayerGlyph(
-                                            slot = PlayerIconSlot.MORE,
-                                            fallback = R.drawable.more_horiz,
-                                            tint = LocalContentColor.current,
-                                            modifier = Modifier.size(24.dp)
-                                        )
+                                                    )
+                                                }
+                                            },
+                                            forceFlat = auxiliaryArtworkTransitionRunning(),
+                                        ) {
+                                            PlayerGlyph(
+                                                slot = PlayerIconSlot.MORE,
+                                                fallback = R.drawable.more_horiz,
+                                                tint = LocalContentColor.current,
+                                                modifier = Modifier.size(24.dp),
+                                            )
+                                        }
                                     }
                                 } else {
                                     ForcedDarkScope {
                                         GlassCircleButton(
                                             onClick = playerConnection::toggleLike,
-                                            modifier = Modifier.size(42.dp),
-                                            size = 42.dp,
+                                            modifier = Modifier,
                                             forceFlat = auxiliaryArtworkTransitionRunning(),
                                         ) {
                                             PlayerGlyph(
@@ -2039,123 +1990,11 @@ fun BottomSheetPlayer(
                                                     PlayerIconSlot.LIKED else PlayerIconSlot.LIKE,
                                                 fallback = if (currentSong?.song?.liked == true)
                                                     R.drawable.favorite else R.drawable.favorite_border,
-                                                tint = LocalContentColor.current,
+                                                tint = if (currentSong?.song?.liked == true) AppTheme.colorScheme.error else LocalContentColor.current,
                                                 modifier = Modifier.size(24.dp)
+                                                    .flamingoChrome(additiveChrome)
+                                                    .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha },
                                             )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } else {
-                        val loopBucketProvider = remember(videoLoopClock) {
-                            { videoLoopClock.bucket(VideoLoopBucketMs) }
-                        }
-                        val videoCanvasActive = enableCanvas && canvasArtwork != null && backgroundVisible
-                        Row(
-                            modifier = Modifier.auxiliaryBoundsMorph("actionButtons"),
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            CompositionLocalProvider(
-                                LocalAppBackdrop provides playerBackdrop,
-                                LocalBackdropLoopBucket provides if (videoCanvasActive) loopBucketProvider else null,
-                            ) {
-                                AnimatedContent(targetState = showInlineLyrics, label = "DownloadButton") { showLyrics ->
-                                    if (showLyrics) {
-                                        GlassCircleButton(
-                                            onClick = {
-                                                isFullScreen = !isFullScreen
-                                                if (oneTapFullscreenLyrics && !isFullScreen) showInlineLyrics = false
-                                            },
-                                        ) {
-                                            SymbolIcon(symbol = sf("arrow.up.left.and.arrow.down.right"), contentDescription = null, size = 24.dp)
-                                        }
-                                    } else {
-                                        ForcedDarkScope {
-                                            GlassCircleButton(
-                                                onClick = {
-                                                    menuState.show {
-                                                        OldPlayerMenu(
-                                                            mediaMetadata = mediaMetadata,
-                                                            navController = navController,
-                                                            playerBottomSheetState = state,
-                                                            onShowDetailsDialog = {
-                                                                mediaMetadata.id.let {
-                                                                    bottomSheetPageState.showFloating {
-                                                                        ShowMediaInfo(it)
-                                                                    }
-                                                                }
-                                                            },
-                                                            onDismiss = menuState::dismiss
-                                                        )
-                                                    }
-                                                },
-                                                forceFlat = auxiliaryArtworkTransitionRunning(),
-                                            ) {
-                                                PlayerGlyph(
-                                                    slot = PlayerIconSlot.MORE,
-                                                    fallback = R.drawable.more_horiz,
-                                                    tint = LocalContentColor.current,
-                                                    modifier = Modifier.size(24.dp)
-                                                        .flamingoChrome(additiveChrome)
-                                                        .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha }
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
-
-                                AnimatedContent(targetState = showInlineLyrics, label = "LikeButton") { showLyrics ->
-                                    if (showLyrics) {
-                                        val currentLyrics by playerConnection.currentLyrics.collectAsStateWithLifecycle(initialValue = null)
-                                        ForcedDarkScope {
-                                            GlassCircleButton(
-                                                onClick = {
-                                                    menuState.show {
-                                                        com.convx.music.ui.menu.LyricsMenu(
-                                                            lyricsProvider = { currentLyrics },
-                                                            songProvider = { currentSong?.song },
-                                                            mediaMetadataProvider = { mediaMetadata },
-                                                            onDismiss = menuState::dismiss,
-                                                            onShowOffsetDialog = {
-                                                                bottomSheetPageState.show {
-                                                                    ShowOffsetDialog(
-                                                                        songProvider = { currentSong?.song }
-                                                                    )
-                                                                }
-                                                            }
-                                                        )
-                                                    }
-                                                },
-                                                forceFlat = auxiliaryArtworkTransitionRunning(),
-                                            ) {
-                                                PlayerGlyph(
-                                                    slot = PlayerIconSlot.MORE,
-                                                    fallback = R.drawable.more_horiz,
-                                                    tint = LocalContentColor.current,
-                                                    modifier = Modifier.size(24.dp),
-                                                )
-                                            }
-                                        }
-                                    } else {
-                                        ForcedDarkScope {
-                                            GlassCircleButton(
-                                                onClick = playerConnection::toggleLike,
-                                                modifier = Modifier,
-                                                forceFlat = auxiliaryArtworkTransitionRunning(),
-                                            ) {
-                                                PlayerGlyph(
-                                                    slot = if (currentSong?.song?.liked == true)
-                                                        PlayerIconSlot.LIKED else PlayerIconSlot.LIKE,
-                                                    fallback = if (currentSong?.song?.liked == true)
-                                                        R.drawable.favorite else R.drawable.favorite_border,
-                                                    tint = if (currentSong?.song?.liked == true) AppTheme.colorScheme.error else LocalContentColor.current,
-                                                    modifier = Modifier.size(24.dp)
-                                                        .flamingoChrome(additiveChrome)
-                                                        .graphicsLayer { if (additiveChrome) alpha = AdditiveChromeContentAlpha },
-                                                )
-                                            }
                                         }
                                     }
                                 }
