@@ -95,6 +95,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
+private val SupportedPlayerDesigns = listOf(
+    PlayerDesign.CARD,
+    PlayerDesign.VINYL,
+    PlayerDesign.APPLE_MUSIC,
+)
+
 @Composable
 fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
     val (artworkStyle, setArtworkStyle) = rememberEnumPreference(PlayerArtworkStyleKey, PlayerArtworkStyle.CARD)
@@ -103,17 +109,22 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
     val (staticColor) = rememberPreference(PlayerStaticColorKey, 0xFF1A1A1A.toInt())
     val (gradientRaw) = rememberPreference(PlayerGradientStopsKey, "")
     val (gradientAngle) = rememberPreference(PlayerGradientAngleKey, 90f)
-    val (useV2, setUseV2) = rememberPreference(UseAppleMusicPlayerKey, true)
-    val (look, setLook) = rememberEnumPreference(PlayerLookKey, PlayerLook.SQUARED)
+    val (useV2, setUseV2) = rememberPreference(UseAppleMusicPlayerKey, false)
+    val (look) = rememberEnumPreference(PlayerLookKey, PlayerLook.SQUARED)
     val (shadow, setShadow) = rememberPreference(ShowPlayerThumbnailShadowKey, false)
     val (showUpNext, setShowUpNext) = rememberPreference(ShowUpNextKey, false)
     val (hideVolumeBar, setHideVolumeBar) = rememberPreference(HideVolumeBarKey, false)
 
+    LaunchedEffect(useV2, artworkStyle) {
+        if (useV2) setUseV2(false)
+        if (artworkStyle == PlayerArtworkStyle.CLOVER) {
+            setArtworkStyle(PlayerArtworkStyle.CARD)
+        }
+    }
+
     val design = when {
-        useV2 -> PlayerDesign.APPLE_MUSIC_V2
         background == PlayerBackgroundStyle.APPLE_MUSIC -> PlayerDesign.APPLE_MUSIC
         artworkStyle == PlayerArtworkStyle.VINYL -> PlayerDesign.VINYL
-        artworkStyle == PlayerArtworkStyle.CLOVER -> PlayerDesign.CLOVER
         else -> PlayerDesign.CARD
     }
     val gradientStops = remember(gradientRaw) { decodeGradientStops(gradientRaw) }
@@ -123,13 +134,13 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
         backgroundOverride: PlayerBackgroundStyle = background,
     ) = PlayerLookSpec(
         design = d,
-        background = if (
-            d != PlayerDesign.APPLE_MUSIC &&
-            backgroundOverride == PlayerBackgroundStyle.APPLE_MUSIC &&
-            d != PlayerDesign.APPLE_MUSIC_V2
-        ) {
+        background = if (d != PlayerDesign.APPLE_MUSIC && backgroundOverride == PlayerBackgroundStyle.APPLE_MUSIC) {
             PlayerBackgroundStyle.GRADIENT
-        } else backgroundOverride,
+        } else if (d == PlayerDesign.APPLE_MUSIC) {
+            PlayerBackgroundStyle.APPLE_MUSIC
+        } else {
+            backgroundOverride
+        },
         sliderStyle = sliderStyle,
         look = lookOverride,
         staticColor = Color(staticColor),
@@ -141,26 +152,21 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
     )
 
     fun apply(d: PlayerDesign) {
-        if (d == design) return
+        if (useV2) setUseV2(false)
         val leaveAppleBackground = background == PlayerBackgroundStyle.APPLE_MUSIC
         when (d) {
-            PlayerDesign.CARD, PlayerDesign.VINYL, PlayerDesign.CLOVER -> {
-                val targetArtwork = when (d) {
-                    PlayerDesign.VINYL -> PlayerArtworkStyle.VINYL
-                    PlayerDesign.CLOVER -> PlayerArtworkStyle.CLOVER
-                    else -> PlayerArtworkStyle.CARD
-                }
+            PlayerDesign.CARD, PlayerDesign.VINYL -> {
+                val targetArtwork = if (d == PlayerDesign.VINYL) PlayerArtworkStyle.VINYL else PlayerArtworkStyle.CARD
                 if (artworkStyle != targetArtwork) setArtworkStyle(targetArtwork)
                 if (leaveAppleBackground) setBackground(PlayerBackgroundStyle.GRADIENT)
-                if (useV2) setUseV2(false)
             }
             PlayerDesign.APPLE_MUSIC -> {
+                if (artworkStyle != PlayerArtworkStyle.CARD) setArtworkStyle(PlayerArtworkStyle.CARD)
                 if (background != PlayerBackgroundStyle.APPLE_MUSIC) setBackground(PlayerBackgroundStyle.APPLE_MUSIC)
-                if (useV2) setUseV2(false)
             }
-            PlayerDesign.APPLE_MUSIC_V2 -> {
-                if (leaveAppleBackground) setBackground(PlayerBackgroundStyle.LIVE_MESH)
-                if (!useV2) setUseV2(true)
+            else -> {
+                setArtworkStyle(PlayerArtworkStyle.CARD)
+                if (leaveAppleBackground) setBackground(PlayerBackgroundStyle.GRADIENT)
             }
         }
     }
@@ -209,36 +215,11 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
             label = "designOptions",
         ) { shown ->
             Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-                if (shown == PlayerDesign.APPLE_MUSIC_V2) {
-                    OptionSection("Layout") {
-                        Row(
-                            Modifier.fillMaxWidth().padding(vertical = 14.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly,
-                        ) {
-                            PlayerLook.entries.forEach { option ->
-                                LayoutChoice(
-                                    label = if (option == PlayerLook.HERO) "Full bleed" else "Square artwork",
-                                    selected = look == option,
-                                    onClick = { if (look != option) setLook(option) },
-                                ) {
-                                    PlayerPhonePreview(
-                                        spec = specFor(shown, lookOverride = option),
-                                        track = track,
-                                        positionMs = position,
-                                        isPlaying = false,
-                                        width = 112.dp,
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-                val classic = shown == PlayerDesign.CARD || shown == PlayerDesign.VINYL || shown == PlayerDesign.CLOVER
-                if (classic || (shown == PlayerDesign.APPLE_MUSIC_V2 && look == PlayerLook.SQUARED)) {
+                val classic = shown == PlayerDesign.CARD || shown == PlayerDesign.VINYL
+                if (classic) {
                     OptionSection("Background") {
                         BackgroundPicker(
                             current = specFor(shown).background,
-                            design = shown,
                             artworkUrl = track?.artworkUrl,
                             spec = specFor(shown),
                             onPick = setBackground,
@@ -251,31 +232,31 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
                             )
                         }
                     }
-                }
-                if (classic) OptionSection("Seek bar") {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        contentPadding = PaddingValues(14.dp),
-                    ) {
-                        items(SliderStyle.entries) { style ->
-                            PickTile(
-                                label = sliderLabelFor(style),
-                                selected = sliderStyle == style,
-                                onClick = { setSliderStyle(style) },
-                            ) {
-                                PlayerSeekBarSample(
-                                    style = style,
-                                    isPlaying = false,
-                                    modifier = Modifier
-                                        .size(width = 132.dp, height = 64.dp)
-                                        .background(Color(0xFF1C1C1E)),
-                                )
+                    OptionSection("Seek bar") {
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            contentPadding = PaddingValues(14.dp),
+                        ) {
+                            items(SliderStyle.entries) { style ->
+                                PickTile(
+                                    label = sliderLabelFor(style),
+                                    selected = sliderStyle == style,
+                                    onClick = { setSliderStyle(style) },
+                                ) {
+                                    PlayerSeekBarSample(
+                                        style = style,
+                                        isPlaying = false,
+                                        modifier = Modifier
+                                            .size(width = 132.dp, height = 64.dp)
+                                            .background(Color(0xFF1C1C1E)),
+                                    )
+                                }
                             }
                         }
                     }
                 }
                 OptionSection(null) {
-                    val heroLayout = shown == PlayerDesign.APPLE_MUSIC || (shown == PlayerDesign.APPLE_MUSIC_V2 && look == PlayerLook.HERO)
+                    val heroLayout = shown == PlayerDesign.APPLE_MUSIC
                     if (!heroLayout) {
                         SwitchRow("Artwork shadow", shadow, setShadow)
                         Divider()
@@ -317,19 +298,20 @@ private fun DesignCarousel(
     upNext: String?,
     onSelect: (PlayerDesign) -> Unit,
 ) {
-    val designs = PlayerDesign.entries
-    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selected.ordinal)
+    val designs = SupportedPlayerDesigns
+    val selectedIndex = designs.indexOf(selected).coerceAtLeast(0)
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
     val scope = rememberCoroutineScope()
     val centred by remember {
         derivedStateOf {
             val info = listState.layoutInfo
             val mid = (info.viewportStartOffset + info.viewportEndOffset) / 2f
-            info.visibleItemsInfo.minByOrNull { abs(it.offset + it.size / 2f - mid) }?.index ?: selected.ordinal
+            info.visibleItemsInfo.minByOrNull { abs(it.offset + it.size / 2f - mid) }?.index ?: selectedIndex
         }
     }
-    LaunchedEffect(selected) {
-        if (!listState.isScrollInProgress && centred != selected.ordinal) {
-            listState.scrollToItem(selected.ordinal)
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress && centred != selectedIndex) {
+            listState.scrollToItem(selectedIndex)
         }
     }
 
@@ -413,14 +395,13 @@ private fun DesignCarousel(
 @Composable
 private fun BackgroundPicker(
     current: PlayerBackgroundStyle,
-    design: PlayerDesign,
     artworkUrl: String?,
     spec: PlayerLookSpec,
     onPick: (PlayerBackgroundStyle) -> Unit,
 ) {
     val styles = PlayerBackgroundStyle.entries
         .filter { (it != PlayerBackgroundStyle.BLUR && it != PlayerBackgroundStyle.GLASS) || Build.VERSION.SDK_INT >= Build.VERSION_CODES.S }
-        .filter { it != PlayerBackgroundStyle.APPLE_MUSIC || design == PlayerDesign.APPLE_MUSIC_V2 }
+        .filter { it != PlayerBackgroundStyle.APPLE_MUSIC }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = styles.indexOf(current).coerceAtLeast(0))
     LazyRow(
         state = listState,
@@ -434,24 +415,6 @@ private fun BackgroundPicker(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun LayoutChoice(label: String, selected: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
-    val ring by animateColorAsState(if (selected) IosTheme.tint else Color.Transparent, label = "layoutRing")
-    Column(
-        horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.clickable(interactionSource = null, indication = null, onClick = onClick),
-    ) {
-        Box(Modifier.border(2.5.dp, ring, ContinuousRoundedRectangle(18.dp)).padding(5.dp)) { content() }
-        Spacer(Modifier.height(8.dp))
-        Text(
-            label,
-            style = IosTheme.typography.subheadline,
-            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-            color = if (selected) IosTheme.tint else IosTheme.colors.label,
-        )
     }
 }
 
@@ -541,9 +504,9 @@ private fun Divider() = HorizontalDivider(
 private fun designName(d: PlayerDesign) = when (d) {
     PlayerDesign.CARD -> "Card"
     PlayerDesign.VINYL -> "Vinyl"
-    PlayerDesign.CLOVER -> "Clover"
+    PlayerDesign.CLOVER -> "Card"
     PlayerDesign.APPLE_MUSIC -> "Apple Music"
-    PlayerDesign.APPLE_MUSIC_V2 -> "Apple Music v2"
+    PlayerDesign.APPLE_MUSIC_V2 -> "Apple Music"
 }
 
 private fun backgroundName(style: PlayerBackgroundStyle) = when (style) {
