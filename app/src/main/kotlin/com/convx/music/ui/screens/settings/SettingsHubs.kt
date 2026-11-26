@@ -87,15 +87,11 @@ object SettingsHubs {
                 "Player",
                 listOf(
                     SettingsLink("Player design", R.drawable.play, { systemPink }, SettingsAction.PlayerDesign,
-                        "Card, Vinyl, Clover, Apple Music — live previews", "theme layout background seek bar slider up next shadow volume bar"),
+                        "Card, Vinyl, Apple Music — live previews", "theme layout background seek bar slider up next shadow volume bar"),
                     SettingsLink("Controls & layout", R.drawable.sliders, { systemIndigo }, route("settings/appearance/advanced"),
                         "Thumbnail, mini player, buttons and badges", "mini player comment button audio quality badge thumbnail"),
                     SettingsLink("Player icons", R.drawable.tune, { systemOrange }, route("settings/appearance/playericons"),
                         "Choose the playback control icons"),
-                    SettingsLink("Canvas", R.drawable.canvas_art, { systemTeal }, route("settings/appearance/canvas"),
-                        "Animated artwork behind the player", "video animated artwork"),
-                    SettingsLink("Ambient Mode", R.drawable.fullscreen, { systemIndigo }, route("settings/ambient"),
-                        "Canvas, lyrics and controls for a fullscreen listening view", "ambient fullscreen landscape canvas progress ring"),
                 ),
             ),
             SettingsLinkGroup(
