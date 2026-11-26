@@ -64,6 +64,7 @@ import androidx.compose.ui.input.pointer.util.addPointerInputChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
@@ -1741,7 +1742,7 @@ private fun PlayerV2Content(
                                             style = AppTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Medium),
                                             color = bottomTint,
                                             maxLines = 1,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                            overflow = TextOverflow.Ellipsis,
                                             textAlign = TextAlign.Center,
                                             modifier = Modifier.widthIn(max = 110.dp)
                                         )
