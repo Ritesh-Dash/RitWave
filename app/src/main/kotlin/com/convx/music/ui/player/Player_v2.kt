@@ -183,8 +183,6 @@ fun PlayerV2(
     onCoverShowingChange: ((Boolean) -> Unit)? = null,
     auxiliaryPageState: PlayerAuxiliaryPageState? = null,
 ) {
-    // Do not compose or re-measure the full V2 player tree while the sheet is collapsed
-    // and idle (e.g., while switching styles in Settings -> Player Design).
     if (state.isCollapsed && !PlayerMorph.active && auxiliaryPageState == null && !isPreviewOnly) {
         return
     }
