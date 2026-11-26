@@ -10,10 +10,8 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -199,7 +197,6 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
             specFor = { specFor(it) },
             track = track,
             position = position,
-            isPlaying = isPlaying,
             upNext = upNext,
             onSelect = ::apply,
         )
@@ -207,8 +204,7 @@ fun ColumnScope.PlayerDesignSheetContent(onMoreOptions: () -> Unit) {
         AnimatedContent(
             targetState = design,
             transitionSpec = {
-                (fadeIn(tween(200, delayMillis = 40)) + expandVertically(tween(220))) togetherWith
-                    (fadeOut(tween(110)) + shrinkVertically(tween(170)))
+                fadeIn(tween(150)) togetherWith fadeOut(tween(100))
             },
             label = "designOptions",
         ) { shown ->
@@ -318,7 +314,6 @@ private fun DesignCarousel(
     specFor: (PlayerDesign) -> PlayerLookSpec,
     track: PreviewTrack?,
     position: () -> Long,
-    isPlaying: Boolean,
     upNext: String?,
     onSelect: (PlayerDesign) -> Unit,
 ) {
@@ -334,7 +329,7 @@ private fun DesignCarousel(
     }
     LaunchedEffect(selected) {
         if (!listState.isScrollInProgress && centred != selected.ordinal) {
-            listState.animateScrollToItem(selected.ordinal)
+            listState.scrollToItem(selected.ordinal)
         }
     }
 
@@ -374,7 +369,7 @@ private fun DesignCarousel(
                             alpha = 1f - (depth * 0.25f).coerceAtMost(0.5f)
                         }
                         .clickable(interactionSource = null, indication = null) {
-                            if (index == centred) onSelect(d) else scope.launch { listState.animateScrollToItem(index) }
+                            if (index == centred) onSelect(d) else scope.launch { listState.scrollToItem(index) }
                         },
                     contentAlignment = Alignment.TopCenter,
                 ) {
